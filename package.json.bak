@@ -1,0 +1,38 @@
+{
+  "name": "cancer-treatment-chatbot",
+  "version": "1.0.0",
+  "description": "항암요법 Treatment Planning 챗봇 - 한국 요양급여 기준 기반",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "nodemon server/server.js",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install-all": "npm install && cd client && npm install"
+  },
+  "keywords": [
+    "cancer",
+    "treatment",
+    "chatbot",
+    "rag",
+    "healthcare"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "18": "0.0.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "faiss-node": "^0.5.1",
+    "langchain": "^0.1.2",
+    "langchain-openai": "^0.0.12",
+    "openai": "^4.20.0",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
+  }
+}

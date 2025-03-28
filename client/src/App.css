@@ -1,0 +1,1470 @@
+.App {
+  text-align: center;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Noto Sans KR', 'Roboto', sans-serif;
+}
+
+.App-header {
+  background-color: #1565c0;
+  padding: 15px 20px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-container label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-container input {
+  margin-right: 8px;
+}
+
+.main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-container {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  height: 100%;
+  border-right: 1px solid #e0e0e0;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+  background-image: linear-gradient(rgba(255,255,255,0.7) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.7) 1px, transparent 1px);
+  background-size: 20px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #b0bec5 #f8f9fa;
+  min-height: 200px;
+}
+
+/* 환영 메시지 스타일 */
+.welcome-message {
+  text-align: center;
+  margin: auto;
+  max-width: 500px;
+  color: #5f6368;
+  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.welcome-message h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #1976d2;
+}
+
+.welcome-message p {
+  margin: 10px 0 20px;
+  line-height: 1.5;
+  color: #3c4043;
+}
+
+.welcome-message h3 {
+  font-size: 1.1rem;
+  margin: 15px 0 10px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* 예시 질문 컨테이너 스타일 */
+.example-questions-container {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+
+.example-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+/* 예시 질문 스타일 */
+.example-question {
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #1976d2;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #3c4043;
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.example-question:hover {
+  background-color: #e3f2fd;
+  border-color: #bbdefb;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.example-question svg {
+  color: #1976d2;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .welcome-message {
+    max-width: 100%;
+    padding: 15px;
+  }
+  
+  .example-question {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+.message {
+  max-width: 85%;
+  padding: 12px 16px;
+  margin-bottom: 15px;
+  border-radius: 15px;
+  display: flex;
+  align-items: flex-start;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #1976d2;
+  color: white;
+  border-radius: 15px 15px 0 15px;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background-color: white;
+  color: #3c4043;
+  border-radius: 15px 15px 15px 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.message.loading {
+  padding: 10px 15px;
+  background-color: white;
+}
+
+.loader {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #1976d2;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 메시지 입력 폼 스타일 */
+.message-form {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  padding: 15px;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+  z-index: 10;
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.message-input {
+  flex: 1;
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  font-size: 16px;
+  resize: none;
+  min-height: 55px;
+  max-height: 150px;
+  overflow-y: auto;
+  line-height: 1.4;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #2c6ecb;
+  box-shadow: 0 0 0 2px rgba(44, 110, 203, 0.2);
+}
+
+.send-button {
+  width: 45px;
+  height: 45px;
+  margin-left: 10px;
+  background-color: #2c6ecb;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-end;
+  opacity: 0.9;
+}
+
+.send-button:hover {
+  background-color: #215ba7;
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+.send-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 모바일 환경에서의 메시지 입력 영역 개선 */
+@media (max-width: 768px) {
+  .message-form {
+    padding: 10px;
+  }
+  
+  .message-input {
+    min-height: 50px;
+    max-height: 120px;
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+  
+  .send-button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* 더 작은 모바일 화면에서 추가 조정 */
+@media (max-width: 480px) {
+  .message-input {
+    min-height: 45px;
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+  
+  .send-button {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* PDF 뷰어 관련 스타일 */
+.pdf-container {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  background-color: #f5f5f5;
+}
+
+.pdf-container.scroll-mode {
+  padding: 20px;
+}
+
+.pdf-container.single-mode {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+/* PDF 문서 스타일 */
+.pdf-document {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* PDF 페이지 스타일 */
+.pdf-page {
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+  background-color: white;
+}
+
+.current-page {
+  border: 2px solid #1976d2;
+}
+
+.pdf-controls {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.pdf-navigation-controls, 
+.pdf-zoom-controls {
+  display: flex;
+  align-items: center;
+}
+
+.pdf-control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: transparent;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 0 2px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  color: #444;
+}
+
+.pdf-control-button:hover:not(:disabled) {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+}
+
+.pdf-control-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pdf-control-button.active {
+  background-color: #e9ecef;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.page-info, .scale-info {
+  margin: 0 8px;
+  font-size: 14px;
+  color: #444;
+  min-width: 50px;
+  text-align: center;
+}
+
+.jump-to-page-form {
+  display: flex;
+  align-items: center;
+}
+
+.jump-to-page-input {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 60px;
+  margin-right: 4px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.jump-to-page-input:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+/* PDF 로딩 및 에러 상태 */
+.pdf-loading, .pdf-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  font-size: 16px;
+  color: #555;
+  text-align: center;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px dashed #ddd;
+  margin: 20px;
+  min-height: 200px;
+}
+
+.pdf-error {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 2rem;
+  color: #d32f2f;
+  text-align: center;
+  background-color: #ffebee;
+  border-radius: 8px;
+  border: 1px solid #ffcdd2;
+  margin: 1rem;
+}
+
+.pdf-error p {
+  margin: 0.5rem 0 1.5rem;
+  color: #616161;
+  font-size: 14px;
+}
+
+.pdf-error-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.pdf-reload-button {
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.pdf-reload-button:hover {
+  background-color: #1565c0;
+}
+
+.pdf-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 2rem;
+  background-color: #f5f5f5;
+}
+
+.pdf-message {
+  text-align: center;
+  color: #616161;
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* 검색 키워드 하이라이트 */
+.text-highlight {
+  background-color: rgba(144, 238, 144, 0.4);
+  border-radius: 2px;
+  padding: 0 1px;
+  box-shadow: 0 0 0 1px rgba(144, 238, 144, 0.6);
+}
+
+/* 텍스트 레이어 */
+.textLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1.0;
+}
+
+.textLayer > span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+/* 검색 텍스트 하이라이트 */
+.highlight-text {
+  background-color: rgba(255, 255, 0, 0.4);
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  color: transparent;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .pdf-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .pdf-navigation-controls, 
+  .pdf-zoom-controls,
+  .pdf-search-controls,
+  .jump-to-page-form {
+    margin: 5px 0;
+  }
+  
+  .pdf-search-input {
+    width: 120px;
+  }
+}
+
+/* 앱 레이아웃을 두 컬럼으로 변경 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Noto Sans KR', 'Roboto', sans-serif;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 60px); /* 헤더 높이를 제외한 나머지 높이 */
+}
+
+/* 헤더 스타일 */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #0d47a1, #1976d2);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 100;
+  position: relative;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo {
+  height: 36px;
+  width: auto;
+  margin-right: 10px;
+}
+
+.title-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.app-subtitle {
+  font-size: 0.85rem;
+  margin: 0;
+  opacity: 0.85;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.new-chat-button, .session-toggle-button, .help-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 8px;
+}
+
+.new-chat-button:hover, .session-toggle-button:hover, .help-button:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.new-chat-button {
+  padding: 8px 15px;
+}
+
+.session-toggle-button, .help-button {
+  padding: 8px;
+}
+
+.session-toggle-button.active {
+  background-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.button-text {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* 세션 관리 패널 */
+.session-controls-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 280px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  margin-top: 8px;
+  overflow: hidden;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.session-controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.session-controls-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.close-panel-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-panel-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.session-controls-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: #f5f7fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.action-button:hover {
+  background-color: #e3f2fd;
+  border-color: #bbdefb;
+  color: #1976d2;
+}
+
+.action-button svg {
+  color: #666;
+}
+
+.action-button:hover svg {
+  color: #1976d2;
+}
+
+/* 채팅 컬럼 */
+.chat-column {
+  flex: 0 0 40%; /* 기본 너비를 40%로 설정 */
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  z-index: 5;
+  background-color: #ffffff;
+  overflow: hidden;
+  position: relative; /* 리사이저를 위한 포지션 설정 */
+}
+
+/* 챗 인터페이스 */
+.chat-interface {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/* 챗 헤더는 숨김 처리 */
+.chat-header {
+  display: none; /* 중복된 제목 영역 제거 */
+}
+
+/* 리사이저 스타일 */
+.resizer {
+  width: 8px;
+  height: 100%;
+  background-color: #f0f0f0;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  cursor: col-resize;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+
+.resizer:hover, .resizer.resizing {
+  background-color: #1976d2;
+}
+
+/* 리사이징 중일 때 텍스트 선택 방지 */
+.resizing {
+  user-select: none;
+}
+
+/* PDF 뷰어 컬럼 */
+.pdf-column {
+  flex: 1; /* 나머지 공간 모두 차지 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 992px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .chat-column {
+    max-width: 100%;
+    flex: 0 0 40vh; /* 세로로 변경될 때 40vh로 설정 */
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .resizer {
+    width: 100%;
+    height: 8px;
+    cursor: row-resize;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+  }
+  
+  .pdf-column {
+    height: 60vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px 15px;
+  }
+  
+  .app-title {
+    font-size: 1.1rem;
+  }
+  
+  .app-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  .header-actions {
+    gap: 5px;
+  }
+  
+  .new-chat-button, .session-toggle-button, .help-button {
+    padding: 6px;
+  }
+  
+  .session-controls-panel {
+    width: 250px;
+  }
+}
+
+/* URL 링크 스타일 */
+.url-link {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+/* 페이지 참조 스타일 */
+.page-reference {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f0f7ff;
+  color: #2c6ecb;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+  border: 1px solid #d0e3ff;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.page-reference:hover {
+  background-color: #e0edff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.page-reference svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+}
+
+/* 미디어 쿼리에서 모바일 환경 페이지 참조 스타일 추가 */
+@media (max-width: 768px) {
+  .page-reference {
+    padding: 1px 4px;
+    font-size: 0.85em;
+  }
+  
+  .page-reference svg {
+    width: 12px;
+    height: 12px;
+    margin-right: 3px;
+  }
+}
+
+.page-jump-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1976d2;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.page-jump-btn:hover {
+  background-color: rgba(25, 118, 210, 0.2);
+  transform: scale(1.1);
+}
+
+.page-references-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.page-refs-label {
+  font-size: 0.85rem;
+  color: #777;
+  font-weight: 500;
+}
+
+.page-reference-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #1976d2;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-reference-chip:hover {
+  background-color: #bbdefb;
+  transform: translateY(-2px);
+}
+
+.page-reference-chip svg {
+  margin-left: 2px;
+}
+
+/* 키워드 강조 스타일 */
+.keyword-highlight {
+  color: #2e7d32;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: all 0.2s ease;
+  position: relative;
+  display: inline-block;
+}
+
+.keyword-highlight:hover {
+  background-color: #e8f5e9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 키워드 클릭 시 효과 */
+.keyword-clicked {
+  background-color: #2e7d32 !important;
+  color: white !important;
+  animation: fadeEffect 0.5s;
+}
+
+/* 키워드 툴팁 */
+.keyword-highlight::after {
+  content: "관련 페이지로 이동";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.keyword-highlight:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 클릭 가능한 페이지 번호 툴팁 */
+.clickable-page::after, .page-reference::after {
+  content: "페이지로 이동";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.clickable-page:hover::after, .page-reference:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 페이지 분포 맵 스타일 */
+.page-distribution-map {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.page-map-title {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+.page-map-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.page-map-item {
+  width: 14px;
+  height: 14px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  position: relative;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.page-map-item.has-results {
+  background-color: #e3f2fd;
+  border-color: #90caf9;
+  cursor: pointer;
+}
+
+.page-map-item.has-results:hover {
+  background-color: #bbdefb;
+  transform: scale(1.1);
+  z-index: 1;
+}
+
+.page-map-item.current-page-group {
+  border: 2px solid #1976d2;
+}
+
+.result-count-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #1976d2;
+  border-radius: 1px;
+}
+
+/* 키보드 단축키 표시 */
+.search-keyboard-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #666;
+}
+
+.search-keyboard-shortcut {
+  display: flex;
+  align-items: center;
+}
+
+.search-keyboard-shortcut kbd {
+  background-color: #f7f7f7;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.2);
+  color: #333;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  margin: 0 2px;
+}
+
+/* 검색 클리어 버튼 */
+.clear-search-button {
+  background-color: #f0f0f0;
+  border-radius: 0;
+  border-left: none;
+  padding: 8px 10px;
+}
+
+.clear-search-button:hover {
+  background-color: #e0e0e0;
+}
+
+/* 클릭 가능한 페이지 번호 스타일 */
+.clickable-page, .page-reference {
+  color: #0078d7;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  position: relative;
+  display: inline-block;
+  margin: 0 1px;
+}
+
+.clickable-page:hover, .page-reference:hover {
+  background-color: #e6f2ff;
+  color: #0056b3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* 페이지 번호 클릭 시 효과 */
+.page-clicked {
+  background-color: #0078d7 !important;
+  color: white !important;
+  animation: fadeEffect 0.5s;
+}
+
+@keyframes fadeEffect {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+/* 타이핑 인디케이터 스타일 */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 20px;
+}
+
+.typing-indicator span {
+  height: 8px;
+  width: 8px;
+  margin: 0 2px;
+  background-color: #3f51b5;
+  border-radius: 50%;
+  display: inline-block;
+  opacity: 0.4;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation: pulse 1s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation: pulse 1s infinite .3s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation: pulse 1s infinite .6s;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 메시지 아바타 관련 스타일 추가 */
+.message-avatar {
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-avatar {
+  background-color: #1565c0;
+  color: white;
+  font-size: 0.9rem;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-weight: 500;
+}
+
+.bot-avatar {
+  background: linear-gradient(135deg, #304ffe, #7c4dff);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.bot-avatar::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: linear-gradient(45deg, #304ffe, transparent, #7c4dff);
+  animation: spin 4s linear infinite;
+  opacity: 0.5;
+  border-radius: 40%;
+}
+
+.bot-avatar-inner {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(135deg, #304ffe, #7c4dff);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+/* 메시지 텍스트 스타일 개선 */
+.message-text {
+  line-height: 1.5;
+  width: 100%;
+}
+
+.message.assistant .message-text {
+  white-space: pre-wrap;
+}
+
+.message.assistant .message-text strong {
+  color: #1565c0;
+  font-weight: 600;
+}
+
+.message.assistant .message-text br {
+  display: block;
+  margin: 8px 0;
+  content: "";
+}
+
+/* 리스트 스타일 개선 */
+.message.assistant .message-text ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.message.assistant .message-text li {
+  margin-bottom: 4px;
+}
+
+/* 추가 질문 프롬프트 스타일 */
+.followup-questions-container {
+  margin: 10px 0 20px 60px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  max-width: 90%;
+}
+
+.followup-questions-container h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+
+.followup-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 5px;
+}
+
+.followup-question {
+  padding: 8px 12px;
+  background-color: #e9f2fd;
+  border-radius: 12px;
+  color: #0066cc;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #d1e6ff;
+}
+
+.followup-question:hover {
+  background-color: #d1e6ff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.followup-question svg {
+  margin-right: 8px;
+  margin-top: 2px;
+  min-width: 14px;
+  color: #0066cc;
+}
+
+/* 페이지 참조 및 키워드 스타일 강화 */
+.page-reference, .clickable-page {
+  color: #0066cc;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background-color: rgba(0, 102, 204, 0.08);
+  transition: all 0.2s ease;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.page-reference:hover, .clickable-page:hover {
+  background-color: rgba(0, 102, 204, 0.15);
+  text-decoration: underline;
+}
+
+.page-clicked {
+  animation: page-click-animation 0.5s ease;
+}
+
+.keyword-highlight {
+  color: #0066cc;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 3px;
+  background-color: rgba(0, 102, 204, 0.08);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.keyword-highlight:hover {
+  background-color: rgba(0, 102, 204, 0.15);
+  text-decoration: underline;
+}
+
+.keyword-clicked {
+  animation: keyword-click-animation 0.5s ease;
+}
+
+@keyframes page-click-animation {
+  0% { background-color: rgba(0, 102, 204, 0.08); }
+  50% { background-color: rgba(0, 102, 204, 0.3); }
+  100% { background-color: rgba(0, 102, 204, 0.08); }
+}
+
+@keyframes keyword-click-animation {
+  0% { background-color: rgba(0, 102, 204, 0.08); }
+  50% { background-color: rgba(0, 102, 204, 0.3); }
+  100% { background-color: rgba(0, 102, 204, 0.08); }
+}
+
+/* 링크 스타일 강화 */
+.message-text a {
+  color: #0066cc;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.message-text a:hover {
+  color: #004999;
+}
+
+/* 응답 내 강조 텍스트 개선 */
+.message-text strong {
+  font-weight: 600;
+  color: #333;
+}
+
+/* 모바일 환경에서의 추가 질문 스타일 조정 */
+@media (max-width: 768px) {
+  .followup-questions-container {
+    margin-left: 40px;
+    max-width: 95%;
+  }
+  
+  .followup-question, .loading-suggestions {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+}
+
+/* 추천 질문 로딩 중 표시 */
+.loading-suggestions {
+  padding: 8px 12px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  color: #555;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e0e0;
+  font-style: italic;
+}

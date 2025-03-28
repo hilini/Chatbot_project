@@ -1,0 +1,133 @@
+.mcp-tools {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.mcp-tools h2 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.connected-message {
+  color: #27ae60;
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.tools-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.tool-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 300px;
+  flex: 1;
+  max-width: 500px;
+}
+
+.tool-card h3 {
+  color: #3498db;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.tool-card button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.tool-card button:hover {
+  background-color: #2980b9;
+}
+
+.tool-card button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.results-container {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px dashed #ddd;
+}
+
+.results-container h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.regimen-item, .trial-item {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.error-container {
+  text-align: center;
+  padding: 40px 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.error-message {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.notes {
+  font-style: italic;
+  color: #7f8c8d;
+  margin-top: 15px;
+}
+
+@media (max-width: 768px) {
+  .tools-container {
+    flex-direction: column;
+  }
+  
+  .tool-card {
+    max-width: 100%;
+  }
+} 

@@ -1,0 +1,331 @@
+Failed to initialize MCP Registry: Cannot find module '/home/hhl/anticancer_chat/node_modules/@modelcontextprotocol/sdk/dist/cjs/server'
+Server running on port 3001
+Visit http://localhost:3001/api/health to verify server is running
+OpenAI features are currently ENABLED
+MCP features are currently ENABLED
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:18:00.738Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "EGFR 변이 폐암 환자에 대한 오시머티닙(타그리소) 투약 권고사항에 대해 알려주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 20, 19 ]
+3개의 페이지 참조가 발견되었습니다: 20, 20, 19
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 768 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:20:48.814Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "펨브롤리주맙(키트루다)의 급여기준에 대해 설명해주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 213, 96, 9 ]
+3개의 페이지 참조가 발견되었습니다: 213, 96, 9
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 658 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/suggest-questions - 10.10.10.103
+GET /api/chat/sessions/m8s5o5srt7kqhtpzj8n/history - 10.10.10.103
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:21:51.278Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "면역항암제와 표적치료제의 차이점은 무엇인가요?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 2, 6, 2 ]
+3개의 페이지 참조가 발견되었습니다: 2, 6, 2
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 748 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:23:24.810Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "비소세포폐암에서 PD-L1 발현 양성인 경우 사용하는 면역항암제와 급여기준이 어떻게 되나요?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 38, 89, 96 ]
+3개의 페이지 참조가 발견되었습니다: 38, 89, 96
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 854 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:23:57.162Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "T315I 변이가 있는 백혈병 환자에게 효과적인 약물은 무엇인가요?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 132, 151, 146 ]
+3개의 페이지 참조가 발견되었습니다: 132, 151, 146
+OpenAI 모델 초기화 시도: gpt-4o-mini
+POST /api/chat/sessions - 10.10.10.103
+[채팅] 응답 성공, 길이: 649 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:25:13.538Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "EGFR 변이 폐암 환자에 대한 오시머티닙(타그리소) 투약 권고사항에 대해 알려주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 20, 19 ]
+3개의 페이지 참조가 발견되었습니다: 20, 20, 19
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 809 자
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:25:41.870Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "표적치료제 사용 시 주기적으로 확인해야 할 검사는 무엇인가요?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 168, 172, 173 ]
+3개의 페이지 참조가 발견되었습니다: 168, 172, 173
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 844 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+GET /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:26:40.640Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "EGFR 변이 폐암 환자에 대한 오시머티닙(타그리소) 투약 권고사항에 대해 알려주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 20, 19 ]
+3개의 페이지 참조가 발견되었습니다: 20, 20, 19
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 715 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:27:14.682Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "펨브롤리주맙(키트루다)의 급여기준에 대해 설명해주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 213, 96, 9 ]
+3개의 페이지 참조가 발견되었습니다: 213, 96, 9
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 746 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+GET /api/chat/sessions/m8s5t8f3wfc3p3suxv/history - 10.10.10.103
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:29:06.481Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "그럼 EGFR 변이를 확인하지 않아도되는건 뭐야?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 19, 23 ]
+3개의 페이지 참조가 발견되었습니다: 20, 19, 23
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 746 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:30:37.970Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "EGFR 변이 폐암 환자에 대한 오시머티닙(타그리소) 투약 권고사항에 대해 알려주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 20, 19 ]
+3개의 페이지 참조가 발견되었습니다: 20, 20, 19
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 818 자
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:31:10.627Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "그럼 반약에 EGFR 변이가 없으면 어떤걸 투여해야해?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 19, 20 ]
+3개의 페이지 참조가 발견되었습니다: 20, 19, 20
+OpenAI 모델 초기화 시도: gpt-4o-mini
+POST /api/chat/sessions - 10.10.10.103
+[채팅] 응답 성공, 길이: 1020 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:31:57.310Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "EGFR 변이 폐암 환자에 대한 오시머티닙(타그리소) 투약 권고사항에 대해 알려주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 20, 20, 19 ]
+3개의 페이지 참조가 발견되었습니다: 20, 20, 19
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 719 자
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:32:35.592Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "그럼 EGFR 변이가 없는 환자는 어떤 약을 처방하면 되는거야?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 19, 20, 20 ]
+3개의 페이지 참조가 발견되었습니다: 19, 20, 20
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 834 자
+POST /api/suggest-questions - 10.10.10.103
+POST /api/chat/sessions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:32:59.833Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "펨브롤리주맙(키트루다)의 급여기준에 대해 설명해주세요."
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 213, 96, 9 ]
+3개의 페이지 참조가 발견되었습니다: 213, 96, 9
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 707 자
+POST /api/suggest-questions - 10.10.10.103
+GET /api/chat/sessions/m8s5t8f3wfc3p3suxv/history - 10.10.10.103
+POST /api/suggest-questions - 10.10.10.103
+Health check requested from 10.10.10.103 - Responding with: {
+  status: 'ok',
+  message: 'Server is running',
+  openaiAvailable: true,
+  serverTime: '2025-03-28T02:33:40.037Z',
+  nodeVersion: 'v18.20.7',
+  env: 'development',
+  ip: '10.10.10.103',
+  configLoaded: true,
+  mcpEnabled: true
+}
+POST /api/chat - 10.10.10.103
+검색 쿼리: "비소세포폐암의 병기별 치료 옵션은 무엇인가요?"
+검색 결과: 3개 문서 발견
+추출된 소스 페이지(문서 내 페이지 번호): [ 146, 86, 72 ]
+3개의 페이지 참조가 발견되었습니다: 146, 86, 72
+OpenAI 모델 초기화 시도: gpt-4o-mini
+[채팅] 응답 성공, 길이: 1029 자
+POST /api/suggest-questions - 10.10.10.103

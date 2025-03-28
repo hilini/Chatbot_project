@@ -1,0 +1,43 @@
+{
+  "name": "cancer-treatment-chatbot",
+  "version": "1.0.0",
+  "description": "항암요법 Treatment Planning 챗봇 - 한국 요양급여 기준 기반",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "nodemon server/server.js",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install-all": "npm install && cd client && npm install"
+  },
+  "keywords": [
+    "cancer",
+    "treatment",
+    "chatbot",
+    "rag",
+    "healthcare"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/community": "^0.3.37",
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.5.0",
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@pinecone-database/pinecone": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "faiss-node": "^0.5.1",
+    "langchain": "^0.1.37",
+    "multer": "^1.4.5-lts.2",
+    "openai": "^4.20.0",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
+  }
+}

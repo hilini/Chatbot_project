@@ -1,0 +1,1 @@
+# Cancer Treatment Guidelines\n\n## Lung Cancer\n\nStage 1: Surgery\nStage 2: Surgery + Chemotherapy\nStage 3: Chemoradiation\nStage 4: Targeted therapy or Immunotherapy\n\n## Breast Cancer\n\nStage 1-2: Surgery, may add radiation and systemic therapy\nStage 3: Neoadjuvant therapy, surgery, radiation\nStage 4: Systemic therapy based on receptor status
