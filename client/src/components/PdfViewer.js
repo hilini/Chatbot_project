@@ -11,8 +11,7 @@ import '../App.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // 상수 설정
-const DEFAULT_PDF_URL = '/files/cancer_treatment_guidelines.pdf';
-const FALLBACK_PDF_URL = 'http://localhost:3001/files/cancer_treatment_guidelines.pdf';
+
 const DEFAULT_SCALE = 1.2;
 
 // 페이지 분포 맵 컴포넌트
@@ -70,11 +69,11 @@ const PageDistributionMap = ({
     </div>
   );
 };
-
-const PdfViewer = ({ currentPage, pdfMode, onToggleMode }) => {
+const PdfViewer = ({ fileUrl, currentPage, pdfMode, onToggleMode }) => {
   const [pdfUrl, setPdfUrl] = useState(DEFAULT_PDF_URL);
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
+  const ext = fileUrl.split('.').pop().toLowerCase();
   const [jumpToPage, setJumpToPage] = useState('');
   const [isDocumentLoaded, setIsDocumentLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -580,6 +579,13 @@ const PdfViewer = ({ currentPage, pdfMode, onToggleMode }) => {
     );
   };
   
+
+  // return (
+  //   <div className="pdf-viewer">
+  //     {ext === 'pdf' ? (
+  //       <>
+  //         {/* 기존 PDF 렌더링 */}
+
   return (
     <div className="pdf-viewer">
       <div className="pdf-controls">

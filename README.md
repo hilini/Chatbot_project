@@ -49,7 +49,7 @@
 
 1. 저장소 클론:
    ```bash
-   git clone https://github.com/your-username/anticancer_chat.git
+   git clone https://github.com/hyeonhoonlee/anticancer_chat.git
    cd anticancer_chat
    ```
 

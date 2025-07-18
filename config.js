@@ -37,9 +37,10 @@ module.exports = {
   
   // Data Sources
   dataSources: {
-    treatmentGuidelinesPath: 'server/data/cancer_treatment_guidelines.pdf',
-    coverageDataPath: 'server/data/coverage_data.json',
-    clinicalTrialsPath: 'server/data/clinical_trials.json'
+    /* PDF·엑셀·한글 파일은 hiraMonitor 가 /files/ 로 서빙 */
+    treatmentGuidelinesPath: null,
+    coverageDataPath: null,
+    clinicalTrialsPath: null
   },
   
   // Client Settings

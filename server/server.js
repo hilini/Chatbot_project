@@ -5,7 +5,12 @@ const path = require('path');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const fs = require('fs');
-const { processPDF, searchSimilarDocuments, getAvailableNamespaces, NAMESPACE, VECTOR_STORE_DIR } = require('./utils/pdfProcessor');
+const {
+  sync,           // 게시판 동기화
+  query,          // 벡터 검색
+  VECTOR_DIR: VECTOR_STORE_DIR, // (필요하면) 벡터 폴더 경로
+  NAMESPACE
+} = require('./utils/hira_data_module');
 
 // Import the config file
 const config = require('../config');
@@ -33,6 +38,10 @@ app.use(cors({
 
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 첨부 원본 파일 열람 (hira_data_module → data/raw)
+const RAW_DIR = path.resolve('./data/raw');
+app.use('/files', express.static(RAW_DIR));
 
 // SPA를 위한 모든 프론트엔드 라우트 처리
 app.get('/*', (req, res, next) => {
@@ -511,65 +520,22 @@ const upload = multer({
 
 // PDF 업로드 및 처리 라우트
 app.post('/api/upload/pdf', upload.single('pdfFile'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: '업로드된 파일이 없습니다.' });
-    }
-
-    const filePath = req.file.path;
-    const { title, author, category, namespace } = req.body;
-    
-    // 메타데이터 준비
-    const metadata = {
-      title: title || path.basename(req.file.originalname, '.pdf'),
-      author: author || '미상',
-      category: category || '암 치료',
-      uploadDate: new Date().toISOString(),
-      fileName: req.file.originalname,
-      namespace: namespace || NAMESPACE
-    };
-    
-    // PDF 처리 및 벡터화
-    const result = await processPDF(filePath, metadata);
-    
-    if (result.success) {
-      return res.status(200).json({
-        success: true,
-        message: `PDF 파일이 성공적으로 처리되었습니다.`,
-        file: req.file.originalname,
-        documentCount: result.documentCount,
-        metadata
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: '파일 처리 중 오류가 발생했습니다.',
-        error: result.error
-      });
-    }
-  } catch (error) {
-    console.error('PDF 업로드 오류:', error);
-    return res.status(500).json({
-      success: false,
-      message: '서버 오류가 발생했습니다.',
-      error: error.message
-    });
-  }
+  return res.status(501).json({ error: 'PDF 수동 업로드는 지원되지 않습니다.' });
 });
 
 // search/documents 엔드포인트 수정 - 페이지 정보 반환
 app.post('/api/search/documents', async (req, res) => {
-  try {
-    const { query, namespace = NAMESPACE, topK = 1 } = req.body;
+    try {
+      const { query: searchText } = req.body;
     
-    if (!query || query.trim() === '') {
+    if (!searchText || searchText.trim() === '') {
       return res.status(400).json({ error: '검색어가 필요합니다.' });
     }
     
-    console.log(`문서 검색 요청: "${query}", 네임스페이스: ${namespace}, topK: ${topK}`);
+    console.log(`문서 검색 요청: \"${searchText}\", 네임스페이스: ${NAMESPACE}`);
     
     // 유사한 문서 검색
-    const results = await searchSimilarDocuments(query, namespace, topK);
+    const results = await query(searchText); 
     
     // 검색 결과 로깅 - 페이지 번호 확인
     console.log(`검색 결과: ${results.length}개 문서 발견`);
@@ -593,21 +559,21 @@ app.post('/api/search/documents', async (req, res) => {
 });
 
 // 새로운 API 엔드포인트: 네임스페이스 정보 조회 (페이지 수 포함)
-app.get('/api/namespaces/:namespace/info', async (req, res) => {
-  try {
-    const { namespace } = req.params;
-    const pageCount = getNamespacePageCount(namespace);
+// app.get('/api/namespaces/:namespace/info', async (req, res) => {
+//   try {
+//     const { namespace } = req.params;
+//     const pageCount = getNamespacePageCount(namespace);
     
-    return res.json({
-      namespace,
-      pageCount,
-      isAvailable: pageCount > 0
-    });
-  } catch (error) {
-    console.error('네임스페이스 정보 조회 오류:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
+//     return res.json({
+//       namespace,
+//       pageCount,
+//       isAvailable: pageCount > 0
+//     });
+//   } catch (error) {
+//     console.error('네임스페이스 정보 조회 오류:', error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// });
 
 // 채팅 세션 관리를 위한 메모리 저장소
 const chatSessions = {};
@@ -645,10 +611,11 @@ app.post('/api/chat', async (req, res) => {
     let sourcePages = [];
     let results = [];  // 상위 스코프로 이동하여 메타데이터 접근에 사용
     
+    
     if (useRag) {
       try {
         // 관련 문서 검색
-        results = await searchSimilarDocuments(message, NAMESPACE, 3);
+        results = await query(message);
         
         // 컨텍스트 구성 및 페이지 번호 추출
         contextDocs = results.map(doc => doc.pageContent);
@@ -656,6 +623,19 @@ app.post('/api/chat', async (req, res) => {
         // 문서 내 페이지 번호(documentPage)를 우선적으로 사용하고, 없으면 물리적 페이지 번호(page) 사용
         sourcePages = results.map(doc => doc.metadata.documentPage || doc.metadata.page || null)
                              .filter(page => page !== null);
+
+        const isApproved = results.some(r => /허가|식품의약품안전처/.test(r.pageContent));
+        const isNotified = results.some(r => /급여|고시|요양급여/.test(r.pageContent));
+        let reimbursement;
+        if (isApproved && isNotified) reimbursement = '급여';
+        else if (isApproved)          reimbursement = '비급여';
+        else                           reimbursement = '임의 비급여';
+
+        // 판정 근거 페이지 추출 (최대 3개)
+        const evidencePages = results
+          .filter(r => /허가|급여|고시/.test(r.pageContent))
+          .map(r => r.metadata.documentPage || r.metadata.page)
+          .slice(0, 3);
         
         console.log("추출된 소스 페이지(문서 내 페이지 번호):", sourcePages);
         if (sourcePages.length > 0) {
@@ -785,6 +765,9 @@ app.post('/api/chat', async (req, res) => {
       const aiResponse = await ai.invoke(messages);
       response = aiResponse.content;
       console.log(`[채팅] 응답 성공, 길이: ${response.length} 자`);
+      response += `
+판정 결과: **${reimbursement}**  
+(근거 페이지: ${evidencePages.join(', ')})`;
     } catch (error) {
       console.error(`[채팅] 응답 오류 (${modelName}): ${error.message}`);
       
@@ -965,72 +948,72 @@ app.get('/api/chat/sessions', (req, res) => {
 });
 
 // 새로운 API 엔드포인트: PDF 다시 처리하기
-app.post('/api/reprocess-pdf', async (req, res) => {
-  try {
-    const { pdfPath, title, author, category, namespace } = req.body;
+// app.post('/api/reprocess-pdf', async (req, res) => {
+//   try {
+//     const { pdfPath, title, author, category, namespace } = req.body;
     
-    // PDF 파일 경로 확인
-    const fullPath = path.resolve(__dirname, '..', pdfPath);
+//     // PDF 파일 경로 확인
+//     const fullPath = path.resolve(__dirname, '..', pdfPath);
     
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({
-        success: false,
-        message: `파일이 존재하지 않습니다: ${pdfPath}`
-      });
-    }
+//     if (!fs.existsSync(fullPath)) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `파일이 존재하지 않습니다: ${pdfPath}`
+//       });
+//     }
     
-    console.log(`PDF 재처리 시작: ${fullPath}`);
+//     console.log(`PDF 재처리 시작: ${fullPath}`);
     
-    // 메타데이터 준비
-    const metadata = {
-      title: title || path.basename(fullPath, '.pdf'),
-      author: author || '미상',
-      category: category || '암 치료',
-      uploadDate: new Date().toISOString(),
-      fileName: path.basename(fullPath),
-      namespace: namespace || NAMESPACE
-    };
+//     // 메타데이터 준비
+//     const metadata = {
+//       title: title || path.basename(fullPath, '.pdf'),
+//       author: author || '미상',
+//       category: category || '암 치료',
+//       uploadDate: new Date().toISOString(),
+//       fileName: path.basename(fullPath),
+//       namespace: namespace || NAMESPACE
+//     };
     
-    // 기존 벡터 스토어 삭제
-    const storeDir = path.join(VECTOR_STORE_DIR, namespace || NAMESPACE);
-    if (fs.existsSync(storeDir)) {
-      console.log(`기존 벡터 스토어 삭제: ${storeDir}`);
-      if (fs.existsSync(path.join(storeDir, 'faiss.index'))) {
-        fs.unlinkSync(path.join(storeDir, 'faiss.index'));
-      }
-      if (fs.existsSync(path.join(storeDir, 'docstore.json'))) {
-        fs.unlinkSync(path.join(storeDir, 'docstore.json'));
-      }
-    }
+//     // 기존 벡터 스토어 삭제
+//     const storeDir = path.join(VECTOR_STORE_DIR, namespace || NAMESPACE);
+//     if (fs.existsSync(storeDir)) {
+//       console.log(`기존 벡터 스토어 삭제: ${storeDir}`);
+//       if (fs.existsSync(path.join(storeDir, 'faiss.index'))) {
+//         fs.unlinkSync(path.join(storeDir, 'faiss.index'));
+//       }
+//       if (fs.existsSync(path.join(storeDir, 'docstore.json'))) {
+//         fs.unlinkSync(path.join(storeDir, 'docstore.json'));
+//       }
+//     }
     
-    // PDF 처리 및 벡터화
-    const result = await processPDF(fullPath, metadata);
+//     // PDF 처리 및 벡터화
+//     const result = await processPDF(fullPath, metadata);
     
-    if (result.success) {
-      return res.status(200).json({
-        success: true,
-        message: `PDF 파일이 성공적으로 재처리되었습니다.`,
-        file: path.basename(fullPath),
-        documentCount: result.documentCount,
-        pageCount: result.pageCount,
-        metadata
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: '파일 처리 중 오류가 발생했습니다.',
-        error: result.error
-      });
-    }
-  } catch (error) {
-    console.error('PDF 재처리 오류:', error);
-    return res.status(500).json({
-      success: false,
-      message: '서버 오류가 발생했습니다.',
-      error: error.message
-    });
-  }
-});
+//     if (result.success) {
+//       return res.status(200).json({
+//         success: true,
+//         message: `PDF 파일이 성공적으로 재처리되었습니다.`,
+//         file: path.basename(fullPath),
+//         documentCount: result.documentCount,
+//         pageCount: result.pageCount,
+//         metadata
+//       });
+//     } else {
+//       return res.status(500).json({
+//         success: false,
+//         message: '파일 처리 중 오류가 발생했습니다.',
+//         error: result.error
+//       });
+//     }
+//   } catch (error) {
+//     console.error('PDF 재처리 오류:', error);
+//     return res.status(500).json({
+//       success: false,
+//       message: '서버 오류가 발생했습니다.',
+//       error: error.message
+//     });
+//   }
+// });
 
 // 관련 질문 추천 API 엔드포인트
 app.post('/api/suggest-questions', async (req, res) => {
@@ -1173,6 +1156,16 @@ app.post('/api/suggest-questions', async (req, res) => {
     });
   }
 });
+
+
+(async () => {
+  try {
+    await sync();                  // 새 글 있을 때만 임베딩
+  } catch (e) {
+    console.warn('[SYNC] 초기 동기화 실패:', e.message);
+  }
+})();
+
 
 // Start the server
 app.listen(PORT, config.server.host, () => {
