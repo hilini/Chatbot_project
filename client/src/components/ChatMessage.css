@@ -1,0 +1,149 @@
+.chat-message {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  max-width: 80%;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.user-message {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-left: auto;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.assistant-message {
+  background: white;
+  border: 1px solid #e1e5e9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-right: auto;
+}
+
+.message-content {
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.user-message .message-content {
+  font-weight: 500;
+}
+
+/* Sources Section */
+.sources-section {
+  margin-top: 12px;
+  border-top: 1px solid #e1e5e9;
+  padding-top: 12px;
+}
+
+.sources-toggle {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.sources-toggle:hover {
+  background-color: #f8f9fa;
+}
+
+.sources-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.source-item {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.source-item:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.source-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.source-number {
+  background: #667eea;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.source-title {
+  font-weight: 600;
+  color: #495057;
+  flex: 1;
+}
+
+.source-confidence {
+  background: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.source-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.source-file,
+.source-post,
+.source-board {
+  color: #6c757d;
+  font-size: 11px;
+}
+
+.source-timestamp {
+  color: #adb5bd;
+  font-size: 10px;
+  font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chat-message {
+    max-width: 95%;
+    margin: 12px 0;
+    padding: 12px;
+  }
+  
+  .source-details {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .source-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+} 

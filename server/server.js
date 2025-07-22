@@ -6,7 +6,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import fs from 'fs';
-import { sync, query, VECTOR_DIR as VECTOR_STORE_DIR } from './utils/hira_data_module.js';
+import { sync, query, searchWithSources, VECTOR_DIR as VECTOR_STORE_DIR } from './utils/hira_data_module.js';
 import configModule from '../config.js';
 const config = configModule.default || configModule;
 
@@ -1159,6 +1159,40 @@ app.post('/api/suggest-questions', async (req, res) => {
     console.error('질문 추천 오류:', error);
     return res.status(500).json({
       error: '질문 추천 중 오류가 발생했습니다.'
+    });
+  }
+});
+
+// API: 소스 추적 검색
+app.post('/api/search', async (req, res) => {
+  try {
+    const { query, limit = 5 } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        error: '검색어를 입력해주세요.' 
+      });
+    }
+
+    const { results, sources } = await searchWithSources(query, limit);
+    
+    res.json({
+      success: true,
+      query,
+      results: results.map(r => ({
+        content: r.content,
+        score: r.score,
+        sourceInfo: r.sourceInfo
+      })),
+      sources,
+      totalResults: results.length,
+      totalSources: sources.length
+    });
+    
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ 
+      error: '검색 중 오류가 발생했습니다.' 
     });
   }
 });

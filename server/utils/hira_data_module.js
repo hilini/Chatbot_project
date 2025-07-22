@@ -248,6 +248,29 @@ async function fetchPost(post) {
         }
       }
       
+      // 항암화학요법 게시판 특별 처리
+      if (post.boardId === BOARD_B) {
+        console.log('Special handling for anticancer therapy board...');
+        // 테이블에서 실제 내용 추출
+        const tableContent = [];
+        $('table tbody tr').each((_, tr) => {
+          const tds = $(tr).find('td');
+          if (tds.length >= 2) {
+            const title = tds.eq(1).text().trim();
+            if (title && title.length > 5) {
+              tableContent.push(title);
+            }
+          }
+        });
+        if (tableContent.length > 0) {
+          bodyText = tableContent.join('\n\n');
+          console.log(`Extracted ${tableContent.length} table rows for anticancer therapy board`);
+        } else {
+          // 테이블이 없으면 기본 내용 사용
+          console.log('No table content found, using default content extraction');
+        }
+      }
+      
       // 마지막 수단: 전체 body에서 의미있는 텍스트 추출
       if (bodyText.length === 0) {
         const allText = $('body').text();
@@ -279,22 +302,47 @@ async function fetchPost(post) {
             const onclick = downloadLink.attr('onclick') || '';
             console.log(`Found download link for "${title}": ${onclick}`);
             
-            // downLoadBbs 함수 호출 패턴
+            // downLoadBbs 함수 호출 패턴 - 더 정확한 정규식 사용
             if (/downLoadBbs/.test(onclick)) {
-              const m = onclick.match(/downLoadBbs\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
+              // 다양한 패턴 시도
+              let m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+              
+              if (!m) {
+                // 공백이 없는 패턴도 시도
+                m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+              }
+              
+              if (!m) {
+                // 숫자만 있는 패턴도 시도
+                m = onclick.match(/downLoadBbs\s*\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+              }
+              
               if (m) {
                 const [_, param1, param2, param3, param4] = m;
                 console.log(`downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
                 
-                // downLoadBbs 함수의 파라미터를 분석해서 다운로드 URL 생성
-                // param1: brdBltNo (게시글 번호)
-                // param2: brdScnBltNo (게시판 번호) - 이 값이 파일을 구분
-                // param3: fileSeq (파일 순서)
-                // param4: 추가 파라미터 (사용하지 않음)
-                const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${post.boardId}&brdBltNo=${param1}&brdScnBltNo=${param2}&fileSeq=${param3}`;
-                const fullUrl = new URL(downloadUrl, 'https://www.hira.or.kr').href;
-                attachments.push(fullUrl);
-                console.log(`Added anticancer therapy attachment: ${fullUrl} (${title})`);
+                // 파라미터 검증
+                if (param1 && param2 && param3) {
+                  // 실제 사이트 분석 결과:
+                  // param1: fileSeq (파일 순서) - '1', '2' 등
+                  // param2: brdBltNo (게시글 번호) - '8', '7' 등  
+                  // param3: brdScnBltNo (게시판 번호) - '5' 등
+                  // param4: 추가 파라미터 - '487' 등
+                  
+                  // 실제 사이트 분석 결과에 따른 정확한 URL 패턴
+                  const downloadUrl = `/bbs/bbsCDownLoad.do?apndNo=${param1}&apndBrdBltNo=${param2}&apndBrdTyNo=${param3}&apndBltNo=${param4}`;
+                  
+                  console.log(`Generated download URL for "${title}": ${downloadUrl}`);
+                  const fullUrl = new URL(downloadUrl, 'https://www.hira.or.kr').href;
+                  if (!attachments.includes(fullUrl)) {
+                    attachments.push(fullUrl);
+                    console.log(`  Added: ${fullUrl}`);
+                  }
+                } else {
+                  console.warn(`Invalid downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
+                }
+              } else {
+                console.warn(`Failed to parse downLoadBbs function call: ${onclick}`);
               }
             }
           }
@@ -315,27 +363,81 @@ async function fetchPost(post) {
           
           const push = (link) => {
             const fullUrl = link.startsWith('http') ? link : new URL(link, 'https://www.hira.or.kr').href;
-            attachments.push(fullUrl);
-            console.log(`Added attachment: ${fullUrl}`);
+            if (!attachments.includes(fullUrl)) {
+              attachments.push(fullUrl);
+              console.log(`Added attachment: ${fullUrl}`);
+            } else {
+              console.log(`Skipped duplicate attachment: ${fullUrl}`);
+            }
           };
           
-          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
-          if (/fileDownloadBbsBltFile/.test(onclick)) {
-            const m = onclick.match(/fileDownloadBbsBltFile\('([^']+)',\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+          // downLoadBbs 함수 호출 패턴 (공고 게시판에서도 사용)
+          if (/downLoadBbs/.test(onclick)) {
+            let m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+            
+            if (!m) {
+              // 공백이 없는 패턴도 시도
+              m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+            }
+            
+            if (!m) {
+              // 숫자만 있는 패턴도 시도
+              m = onclick.match(/downLoadBbs\s*\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+            }
+            
             if (m) {
-              const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
-              const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
-              push(downloadUrl);
+              const [_, param1, param2, param3, param4] = m;
+              console.log(`downLoadBbs parameters (공고): ${param1}, ${param2}, ${param3}, ${param4}`);
+              
+              if (param1 && param2 && param3) {
+                // 공고 게시판의 실제 다운로드 URL 패턴
+                // param1: fileSeq (파일 순서)
+                // param2: brdBltNo (게시글 번호)
+                // param3: brdScnBltNo (게시판 번호)
+                // param4: 추가 파라미터
+                const downloadUrl = `/bbs/bbsCDownLoad.do?apndNo=${param1}&apndBrdBltNo=${param2}&apndBrdTyNo=${param3}&apndBltNo=${param4}`;
+                console.log(`Generated download URL (공고): ${downloadUrl}`);
+                console.log(`Parameters: fileSeq=${param1}, brdBltNo=${param2}, brdScnBltNo=${param3}, extra=${param4}`);
+                push(downloadUrl);
+              } else {
+                console.warn(`Invalid downLoadBbs parameters (공고): ${param1}, ${param2}, ${param3}, ${param4}`);
+              }
+            } else {
+              console.warn(`Failed to parse downLoadBbs function call (공고): ${onclick}`);
             }
           }
           
-          // 직접 파일 링크
-          if (href && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판) - 더 정확한 정규식 사용
+          if (/fileDownloadBbsBltFile/.test(onclick)) {
+            let m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+            
+            if (!m) {
+              // 공백이 없는 패턴도 시도
+              m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+            }
+            
+            if (m) {
+              const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
+              console.log(`fileDownloadBbsBltFile parameters: ${pgmid}, ${brdBltNo}, ${brdScnBltNo}, ${fileSeq}`);
+              
+              if (pgmid && brdBltNo && brdScnBltNo && fileSeq) {
+                const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
+                push(downloadUrl);
+              } else {
+                console.warn(`Invalid fileDownloadBbsBltFile parameters: ${pgmid}, ${brdBltNo}, ${brdScnBltNo}, ${fileSeq}`);
+              }
+            } else {
+              console.warn(`Failed to parse fileDownloadBbsBltFile function call: ${onclick}`);
+            }
+          }
+          
+          // 직접 파일 링크 (href가 실제 파일인 경우만)
+          if (href && href !== '#none' && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
             push(href);
           }
           
-          // 다운로드 버튼이나 링크 텍스트로 판단
-          if (text && /다운로드|첨부|파일|download/i.test(text) && href) {
+          // 다운로드 버튼이나 링크 텍스트로 판단 (href가 유효한 경우만)
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none') {
             push(href);
           }
         });
@@ -348,31 +450,55 @@ async function fetchPost(post) {
           const onclick = $(a).attr('onclick') || '';
           const text = $(a).text().trim();
           
+          // href가 #none인 경우는 건너뛰기
+          if (href === '#none') {
+            console.log(`Skipping #none link: ${onclick}`);
+            return;
+          }
+          
           console.log(`Found link: href="${href}", onclick="${onclick}", text="${text}"`);
           
           const push = (link) => {
             const fullUrl = link.startsWith('http') ? link : new URL(link, 'https://www.hira.or.kr').href;
-            attachments.push(fullUrl);
-            console.log(`Added attachment: ${fullUrl}`);
+            if (!attachments.includes(fullUrl)) {
+              attachments.push(fullUrl);
+              console.log(`Added attachment: ${fullUrl}`);
+            } else {
+              console.log(`Skipped duplicate attachment: ${fullUrl}`);
+            }
           };
           
-          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판) - 더 정확한 정규식 사용
           if (/fileDownloadBbsBltFile/.test(onclick)) {
-            const m = onclick.match(/fileDownloadBbsBltFile\('([^']+)',\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+            let m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+            
+            if (!m) {
+              // 공백이 없는 패턴도 시도
+              m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+            }
+            
             if (m) {
               const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
-              const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
-              push(downloadUrl);
+              console.log(`fileDownloadBbsBltFile parameters: ${pgmid}, ${brdBltNo}, ${brdScnBltNo}, ${fileSeq}`);
+              
+              if (pgmid && brdBltNo && brdScnBltNo && fileSeq) {
+                const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
+                push(downloadUrl);
+              } else {
+                console.warn(`Invalid fileDownloadBbsBltFile parameters: ${pgmid}, ${brdBltNo}, ${brdScnBltNo}, ${fileSeq}`);
+              }
+            } else {
+              console.warn(`Failed to parse fileDownloadBbsBltFile function call: ${onclick}`);
             }
           }
           
-          // 직접 파일 링크
-          if (href && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+          // 직접 파일 링크 (href가 실제 파일인 경우만)
+          if (href && href !== '#none' && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
             push(href);
           }
           
-          // 다운로드 버튼이나 링크 텍스트로 판단
-          if (text && /다운로드|첨부|파일|download/i.test(text) && href) {
+          // 다운로드 버튼이나 링크 텍스트로 판단 (href가 유효한 경우만)
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none') {
             push(href);
           }
         });
@@ -381,36 +507,119 @@ async function fetchPost(post) {
 
     console.log(`Found ${attachments.length} attachments`);
 
-    // 첨부파일 다운로드
+    // 첨부파일 다운로드 - 개선된 버전
     for (const url of attachments) {
       try {
         console.log(`Downloading attachment: ${url}`);
+        
+        // 세션 유지를 위한 쿠키 설정
+        const cookieJar = new Map();
+        
+        // 먼저 메인 페이지 방문하여 세션 설정
+        try {
+          await axios.get('https://www.hira.or.kr/main.do', {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+        } catch (e) {
+          console.log('Main page visit failed, continuing...');
+        }
+        
+        // 더 강력한 헤더 설정
         const res = await axios.get(url, { 
           responseType: 'arraybuffer',
+          timeout: 30000, // 30초 타임아웃
+          maxRedirects: 5, // 리다이렉트 허용
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Referer': post.detailUrl
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.hira.or.kr/bbsDummy.do?pgmid=HIRAA030023030000',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Cache-Control': 'max-age=0'
           }
         });
         
-        const cd = res.headers['content-disposition'] || '';
-        const nameMatch = cd.match(/filename\*=utf-8''([^;]+)/) || cd.match(/filename="?([^";]+)/);
-        let fname = nameMatch ? decodeURIComponent(nameMatch[1]) : path.basename(url.split('?')[0]);
+        // 응답 상태 확인
+        if (res.status !== 200) {
+          console.warn(`Download failed with status ${res.status}: ${url}`);
+          continue;
+        }
         
-        // 파일명이 비어있거나 이상한 경우 기본값 사용
-        if (!fname || fname.length < 3) {
+        // Content-Type 확인
+        const contentType = res.headers['content-type'] || '';
+        console.log(`Content-Type: ${contentType}`);
+        
+        // 파일 크기 확인
+        const contentLength = res.headers['content-length'];
+        if (contentLength && parseInt(contentLength) < 100) {
+          console.warn(`File too small (${contentLength} bytes), might be error page: ${url}`);
+          continue;
+        }
+        
+        // 파일명 추출 - 더 정확한 방법
+        let fname = '';
+        const cd = res.headers['content-disposition'] || '';
+        
+        if (cd) {
+          // UTF-8 인코딩된 파일명
+          let nameMatch = cd.match(/filename\*=utf-8''([^;]+)/);
+          if (nameMatch) {
+            fname = decodeURIComponent(nameMatch[1]);
+          } else {
+            // 일반 파일명
+            nameMatch = cd.match(/filename="?([^";]+)/);
+            if (nameMatch) {
+              fname = nameMatch[1];
+            }
+          }
+        }
+        
+        // 파일명이 없으면 URL에서 추출
+        if (!fname) {
+          const urlPath = url.split('?')[0];
+          fname = path.basename(urlPath);
+        }
+        
+        // 파일명이 여전히 없거나 이상한 경우 기본값 사용
+        if (!fname || fname.length < 3 || fname === 'none' || fname === '#none') {
           const timestamp = Date.now();
-          const ext = url.match(/\.([^.]+)$/)?.[1] || 'bin';
+          let ext = 'bin';
+          
+          // Content-Type에서 확장자 추정
+          if (contentType.includes('pdf')) ext = 'pdf';
+          else if (contentType.includes('hwp') || contentType.includes('application/x-hwp')) ext = 'hwp';
+          else if (contentType.includes('excel') || contentType.includes('spreadsheet')) ext = 'xlsx';
+          else if (contentType.includes('word') || contentType.includes('document')) ext = 'docx';
+          else if (contentType.includes('text')) ext = 'txt';
+          
           fname = `attachment_${timestamp}.${ext}`;
         }
         
+        // 파일명 정리 (특수문자 제거)
+        fname = fname.replace(/[<>:"/\\|?*]/g, '_');
+        
         const filePath = path.join(RAW_DIR, fname);
         fs.writeFileSync(filePath, res.data);
+        
         post.attachments = post.attachments || [];
         post.attachments.push(filePath);
-        console.log(`Downloaded: ${filePath} (${res.data.length} bytes)`);
+        console.log(`✅ Downloaded: ${filePath} (${res.data.length} bytes)`);
+        
       } catch (e) { 
-        console.warn(`Attachment download failed: ${url}, error: ${e.message}`); 
+        console.warn(`❌ Attachment download failed: ${url}, error: ${e.message}`);
+        
+        // 에러 상세 정보 출력
+        if (e.response) {
+          console.warn(`  Status: ${e.response.status}`);
+          console.warn(`  Headers:`, e.response.headers);
+        }
       }
     }
     
@@ -1087,8 +1296,23 @@ async function upsertDocs(docs) {
     }
   }
   
+  // 새 문서에 소스 추적 정보 추가
+  const docsWithSources = docs.map(doc => ({
+    ...doc,
+    sourceInfo: {
+      boardId: doc.metadata.boardId,
+      postNo: doc.metadata.postNo,
+      source: doc.metadata.source,
+      filePath: doc.metadata.filePath,
+      sectionTitle: doc.metadata.sectionTitle,
+      pageNumber: doc.metadata.pageNumber,
+      confidence: 1.0, // 기본 신뢰도
+      timestamp: new Date().toISOString()
+    }
+  }));
+  
   // 새 문서 추가
-  const allDocs = [...existingDocs, ...docs];
+  const allDocs = [...existingDocs, ...docsWithSources];
   fs.writeFileSync(storeFile, JSON.stringify(allDocs, null, 2));
   
   console.log(`Saved ${allDocs.length} total documents to ${storeFile}`);
@@ -1179,28 +1403,102 @@ async function sync(force = false) {
   }
 }
 
-// --------------------------- 5. QUERY ----------------------------------------
-async function query(q) {
+// --------------------------- 5. QUERY & SOURCE TRACKING ----------------------------------------
+async function searchWithSources(query, limit = 5) {
   const storePath = path.join(VECTOR_DIR, 'hira');
-  const storeFile = path.join(storePath, 'memory_store.json');
+  const storeFile = path.join(storePath, 'documents.json');
   
   if (!fs.existsSync(storeFile)) { 
-    console.error('Vector store empty — run --sync first'); 
-    return; 
+    console.error('Documents not found — run --sync first'); 
+    return { results: [], sources: [] }; 
   }
   
   try {
-    const existingDocs = JSON.parse(fs.readFileSync(storeFile, 'utf-8'));
-    const vs = await MemoryVectorStore.fromDocuments(existingDocs, embeddings);
-    const res = await vs.similaritySearch(q, 5);
-    res.forEach((r, i) => {
-      const m = r.metadata;
-      console.log(`\n[${i + 1}] score≈${r.score?.toFixed(3)}  post #${m.postNo} (${m.boardId})  file: ${m.filePath}`);
-      console.log(`   ${r.pageContent.slice(0, 200)}…`);
+    const documents = JSON.parse(fs.readFileSync(storeFile, 'utf-8'));
+    
+    // 간단한 키워드 검색 (나중에 벡터 검색으로 개선)
+    const results = [];
+    const sources = new Map();
+    
+    documents.forEach((doc, index) => {
+      const content = doc.pageContent || '';
+      const queryLower = query.toLowerCase();
+      const contentLower = content.toLowerCase();
+      
+      if (contentLower.includes(queryLower)) {
+        const score = calculateRelevanceScore(queryLower, contentLower);
+        results.push({
+          content: doc.pageContent,
+          score: score,
+          sourceInfo: doc.sourceInfo,
+          metadata: doc.metadata
+        });
+        
+        // 소스 정보 수집
+        const sourceKey = `${doc.sourceInfo.boardId}_${doc.sourceInfo.postNo}`;
+        if (!sources.has(sourceKey)) {
+          sources.set(sourceKey, {
+            boardId: doc.sourceInfo.boardId,
+            postNo: doc.sourceInfo.postNo,
+            source: doc.sourceInfo.source,
+            filePath: doc.sourceInfo.filePath,
+            sectionTitle: doc.sourceInfo.sectionTitle,
+            confidence: doc.sourceInfo.confidence,
+            timestamp: doc.sourceInfo.timestamp
+          });
+        }
+      }
     });
+    
+    // 점수순으로 정렬하고 상위 결과만 반환
+    results.sort((a, b) => b.score - a.score);
+    const topResults = results.slice(0, limit);
+    
+    return {
+      results: topResults,
+      sources: Array.from(sources.values())
+    };
+    
   } catch (error) {
-    console.error('Error querying vector store:', error.message);
+    console.error('Error searching documents:', error.message);
+    return { results: [], sources: [] };
   }
+}
+
+function calculateRelevanceScore(query, content) {
+  // 간단한 관련성 점수 계산
+  const queryWords = query.split(/\s+/);
+  let score = 0;
+  
+  queryWords.forEach(word => {
+    const matches = (content.match(new RegExp(word, 'gi')) || []).length;
+    score += matches;
+  });
+  
+  return score;
+}
+
+async function query(q) {
+  const { results, sources } = await searchWithSources(q, 5);
+  
+  console.log(`\n🔍 검색 결과: "${q}"`);
+  console.log(`📊 총 ${results.length}개 결과, ${sources.length}개 소스`);
+  
+  results.forEach((r, i) => {
+    const source = r.sourceInfo;
+    console.log(`\n[${i + 1}] 점수: ${r.score.toFixed(2)}`);
+    console.log(`📄 소스: ${source.source} (게시글 #${source.postNo})`);
+    console.log(`📁 파일: ${source.filePath || '본문'}`);
+    if (source.sectionTitle) {
+      console.log(`📑 섹션: ${source.sectionTitle}`);
+    }
+    console.log(`💬 내용: ${r.content.slice(0, 200)}…`);
+  });
+  
+  console.log(`\n📚 참고 소스:`);
+  sources.forEach((source, i) => {
+    console.log(`  ${i + 1}. ${source.source} (게시글 #${source.postNo})`);
+  });
 }
 
 // --------------------------- 6. CRON -----------------------------------------
@@ -1216,4 +1514,4 @@ const argv = minimist(process.argv.slice(2));
   if (argv.query) await query(argv.query);
 })();
 
-export { sync, query, VECTOR_DIR };
+export { sync, query, searchWithSources, VECTOR_DIR };

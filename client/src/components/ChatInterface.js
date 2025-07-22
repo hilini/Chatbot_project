@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setHighlight } from '../store/actions';
+import ChatMessage from './ChatMessage';
 import '../App.css';
 
 const ChatInterface = ({ 
@@ -448,17 +449,12 @@ const ChatInterface = ({
           renderWelcomeMessage()
         ) : (
           messages.map((msg, index) => (
-            <div key={index} className={`message ${msg.role}`}>
-              <div className="message-avatar">
-                {msg.role === 'user' ? 
-                  <span className="user-avatar">사용자</span> : 
-                  <div className="bot-avatar">
-                    <div className="bot-avatar-inner">HARI</div>
-                  </div>
-                }
-              </div>
-              {renderMessageContent(msg.content, msg.role)}
-            </div>
+            <ChatMessage
+              key={index}
+              message={msg.content}
+              sources={msg.sources}
+              isUser={msg.role === 'user'}
+            />
           ))
         )}
         {isWaitingForResponse && (
