@@ -9,17 +9,16 @@
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import textract from 'textract';
-import pdfParse from 'pdf-parse';
 import xlsx from 'xlsx';
 import iconv from 'iconv-lite';
 import cron from 'node-cron';
 import minimist from 'minimist';
-import { Hwp } from 'node-hwpjs';
+import HWP from 'hwp.js';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
 import { Document } from 'langchain/document';
 import 'dotenv/config';
 
@@ -35,21 +34,33 @@ const BOARD_A = 'HIRAA030023010000';
 const BOARD_B = 'HIRAA030023030000';
 
 const CRAWL_TARGETS  = [
-  { boardId: BOARD_A, limit: 1 },
-  { boardId: BOARD_B, limit: 1 }
+  { boardId: BOARD_A, limit: 3 }, // 최근 3개 확인 (새로운 게시글 놓치지 않기 위해)
+  { boardId: BOARD_B, limit: 3 }
 ];
 
 const CHUNK_SIZE     = 1000;
 const CHUNK_OVERLAP  = 200;
+const splitter = new RecursiveCharacterTextSplitter({ chunkSize: CHUNK_SIZE, chunkOverlap: CHUNK_OVERLAP });
+
+async function createDocumentsFromText(text, meta) {
+  return (await splitter.splitText(text)).map((c, i) => new Document({
+    pageContent: c,
+    metadata: { ...meta, chunk: i }
+  }));
+}
 const DAILY_CRON_KST = '15 2 * * *'; // 02:15 every day (Asia/Seoul)
 
 // --------------------------- Utilities ---------------------------------------
-const embeddings = new OpenAIEmbeddings({
-  openAIApiKey: process.env.OPENAI_API_KEY,
-  modelName: process.env.OPENAI_EMBED_MODEL || 'text-embedding-ada-002'
-});
+// 임시로 embeddings 비활성화
+// const embeddings = new OpenAIEmbeddings({
+//   openAIApiKey: process.env.OPENAI_API_KEY,
+//   modelName: process.env.OPENAI_EMBED_MODEL || 'text-embedding-ada-002'
+// });
 
-[DATA_DIR, RAW_DIR, TEXT_DIR, VECTOR_DIR].forEach((p) => fs.mkdirSync(p, { recursive: true }));
+[DATA_DIR, RAW_DIR, TEXT_DIR, VECTOR_DIR].forEach((p) => {
+  fs.mkdirSync(p, { recursive: true });
+  console.log('폴더 생성됨:', p);
+});
 
 function loadRegistry() {
   try { return fs.existsSync(REGISTRY_PATH) ? JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf-8')) : {}; }
@@ -60,81 +71,1027 @@ function saveRegistry(reg) { fs.writeFileSync(REGISTRY_PATH, JSON.stringify(reg,
 // --------------------------- 1. CRAWLER --------------------------------------
 async function fetchBoard(boardId, limit = 1) {
   const url = `https://www.hira.or.kr/bbsDummy.do?pgmid=${boardId}`;
-  const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-  const $ = cheerio.load(iconv.decode(data, 'utf-8'));
-  const posts = [];
-  $('table tbody tr').slice(0, limit).each((_, el) => {
-    const tds = $(el).find('td');
-    const no = parseInt(tds.eq(0).text().trim(), 10);
-    const a = $(el).find('a').first();
-    if (!a.length || Number.isNaN(no)) return;
-    const detailUrl = new URL(a.attr('href'), 'https://www.hira.or.kr').href;
-    posts.push({ boardId, postNo: no, title: a.text().trim(), detailUrl });
-  });
-  return posts;
+  console.log(`Fetching board: ${url}`);
+  
+  try {
+    const { data } = await axios.get(url, { 
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    
+    const decodedData = iconv.decode(data, 'utf-8');
+    const $ = cheerio.load(decodedData);
+    const posts = [];
+    
+    console.log(`Parsing board ${boardId}...`);
+    
+    // 게시판 테이블 구조에 맞게 수정
+    $('table tbody tr').slice(0, limit).each((idx, el) => {
+      const tds = $(el).find('td');
+      if (tds.length === 0) return;
+      
+      // 게시글 번호 추출 (첫 번째 컬럼)
+      const noText = tds.eq(0).text().trim();
+      const no = parseInt(noText, 10);
+      
+      // 제목 링크 찾기 (col-tit 클래스가 있는 셀에서 찾기)
+      let titleCell = null;
+      let a = null;
+      
+      // col-tit 클래스가 있는 셀 찾기
+      for (let i = 0; i < tds.length; i++) {
+        const cell = tds.eq(i);
+        if (cell.hasClass('col-tit') || cell.find('a').length > 0) {
+          titleCell = cell;
+          a = cell.find('a').first();
+          break;
+        }
+      }
+      
+      // fallback: 세 번째 셀에서 찾기
+      if (!titleCell) {
+        titleCell = tds.eq(2) || tds.eq(1) || tds.eq(0);
+        a = titleCell.find('a').first();
+      }
+      
+      // 항암화학요법 게시판의 경우 제목이 링크가 아닐 수 있음
+      if (!a.length && boardId === BOARD_B) {
+        console.log(`Board ${boardId}: No link found, this might be a static content page`);
+        // 항암화학요법 게시판은 현재 페이지가 게시글 상세 페이지일 수 있음
+        const currentUrl = `https://www.hira.or.kr/bbsDummy.do?pgmid=${boardId}`;
+        posts.push({ 
+          boardId, 
+          postNo: no, 
+          title: titleCell.text().trim(), 
+          detailUrl: currentUrl 
+        });
+        return; // continue 대신 return 사용
+      }
+      
+      if (!a.length || Number.isNaN(no)) {
+        console.log(`Skip row ${idx}: no link or invalid number (${noText})`);
+        return;
+      }
+      
+      const href = a.attr('href');
+      if (!href) {
+        console.log(`Skip row ${idx}: no href attribute`);
+        return;
+      }
+      
+      // 상대 URL을 절대 URL로 변환
+      let detailUrl = href.startsWith('http') ? href : new URL(href, 'https://www.hira.or.kr').href;
+      
+      // 게시글 상세 페이지 URL이 올바른지 확인하고 수정
+      if (detailUrl.includes('?pgmid=')) {
+        // 게시글 상세 페이지는 bbsDummy.do를 그대로 사용
+        if (detailUrl.includes('bbsView.do')) {
+          detailUrl = detailUrl.replace('bbsView.do', 'bbsDummy.do');
+        }
+        // URL이 이상하게 생성된 경우 수정
+        if (detailUrl.includes('https://www.hira.or.kr/?pgmid=')) {
+          detailUrl = detailUrl.replace('https://www.hira.or.kr/?pgmid=', 'https://www.hira.or.kr/bbsDummy.do?pgmid=');
+        }
+      }
+      const title = a.text().trim();
+      
+      console.log(`Found post #${no}: "${title}" -> ${detailUrl}`);
+      
+      posts.push({ 
+        boardId, 
+        postNo: no, 
+        title: title, 
+        detailUrl: detailUrl 
+      });
+    });
+    
+    console.log(`Found ${posts.length} posts from board ${boardId}`);
+    return posts;
+    
+  } catch (error) {
+    console.error(`Error fetching board ${boardId}:`, error.message);
+    return [];
+  }
 }
 
 async function fetchPost(post) {
-  const { data } = await axios.get(post.detailUrl, { responseType: 'arraybuffer' });
-  const $ = cheerio.load(iconv.decode(data, 'utf-8'));
-  const contentBlock = $('.cont_area, .board_view_cont, .view').first();
-  const bodyText = contentBlock.text().trim();
-
-  const textFile = path.join(TEXT_DIR, `${post.boardId}_${post.postNo}.txt`);
-  fs.writeFileSync(textFile, bodyText);
-
-  const attachments = [];
-  $('a').each((_, a) => {
-    const href = $(a).attr('href') || '';
-    const onclick = $(a).attr('onclick') || '';
-    const push = (link) => attachments.push(new URL(link, 'https://www.hira.or.kr').href);
-    if (/fileDownloadBbsBltFile/.test(onclick)) {
-      const m = onclick.match(/fileDownloadBbsBltFile\('([^']+)',(\d+),(\d+),(\d+)\)/);
-      if (m) {
-        const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
-        push(`/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`);
+  console.log(`Fetching post: ${post.detailUrl}`);
+  
+  try {
+    const { data } = await axios.get(post.detailUrl, { 
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
-    } else if (href && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
-      push(href);
+    });
+    
+    const decodedData = iconv.decode(data, 'utf-8');
+    const $ = cheerio.load(decodedData);
+    
+    // 리다이렉트 체크
+    if (decodedData.includes('location.href=') || decodedData.includes('window.location')) {
+      console.warn('Redirect detected, URL might be wrong');
+      console.log('Current URL:', post.detailUrl);
+      
+      // URL이 잘못된 경우 수정 시도
+      let correctedUrl = post.detailUrl;
+      if (correctedUrl.includes('https://www.hira.or.kr/?pgmid=')) {
+        correctedUrl = correctedUrl.replace('https://www.hira.or.kr/?pgmid=', 'https://www.hira.or.kr/bbsDummy.do?pgmid=');
+        console.log('Trying corrected URL:', correctedUrl);
+        
+        try {
+          const altResponse = await axios.get(correctedUrl, { 
+            responseType: 'arraybuffer',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          });
+          const altDecodedData = iconv.decode(altResponse.data, 'utf-8');
+          const $alt = cheerio.load(altDecodedData);
+          console.log('Corrected URL worked, using it for content extraction...');
+          // 수정된 URL에서 내용 추출 시도
+          $ = $alt;
+        } catch (altError) {
+          console.warn('Corrected URL also failed:', altError.message);
+        }
+      }
+    }
+    
+    // 게시글 내용 추출 - div.view 안의 p 태그들
+    let bodyText = '';
+    const viewDiv = $('.view');
+    if (viewDiv.length > 0) {
+      const paragraphs = viewDiv.find('p');
+      if (paragraphs.length > 0) {
+        bodyText = paragraphs.map((_, p) => $(p).text().trim()).get().join('\n\n');
+        console.log(`Found ${paragraphs.length} paragraphs in .view div`);
+      } else {
+        // p 태그가 없으면 div.view의 전체 텍스트
+        bodyText = viewDiv.text().trim();
+        console.log('No p tags found, using .view div text');
+      }
+    }
+    
+    console.log(`Initial content extraction: ${bodyText.length} characters`);
+    
+    if (bodyText.length === 0) {
+      console.warn('Content block not found, trying alternative selectors...');
+      // 다른 선택자들 시도
+      const altSelectors = ['.board_view', '.content', '.text', 'table', '.board_view_cont', '.view_area', '.board_view_cont_area', '.cont_area'];
+      for (const selector of altSelectors) {
+        const altText = $(selector).text().trim();
+        if (altText.length > bodyText.length) {
+          console.log(`Alternative selector "${selector}" found ${altText.length} characters`);
+          bodyText = altText;
+        }
+      }
+      
+      // 마지막 수단: 전체 body에서 의미있는 텍스트 추출
+      if (bodyText.length === 0) {
+        const allText = $('body').text();
+        const lines = allText.split('\n').filter(line => line.trim().length > 10);
+        bodyText = lines.join('\n');
+        console.log(`Fallback: extracted ${bodyText.length} characters from body`);
+      }
+    }
+
+    const textFile = path.join(TEXT_DIR, `${post.boardId}_${post.postNo}.txt`);
+    fs.writeFileSync(textFile, bodyText);
+    console.log(`Saved text file: ${textFile} (${bodyText.length} characters)`);
+
+    const attachments = [];
+    
+    // 첨부파일 찾기 - 게시판별로 다른 구조 처리
+    if (post.boardId === BOARD_B) {
+      // 항암화학요법 게시판: 테이블에서 다운로드 버튼 찾기
+      console.log('Processing anticancer therapy board attachments...');
+      
+      $('table tbody tr').each((_, tr) => {
+        const tds = $(tr).find('td');
+        if (tds.length >= 3) {
+          const title = tds.eq(1).text().trim(); // 제목
+          const downloadCell = tds.eq(2); // 첨부 셀
+          const downloadLink = downloadCell.find('a.btn_file');
+          
+          if (downloadLink.length > 0) {
+            const onclick = downloadLink.attr('onclick') || '';
+            console.log(`Found download link for "${title}": ${onclick}`);
+            
+            // downLoadBbs 함수 호출 패턴
+            if (/downLoadBbs/.test(onclick)) {
+              const m = onclick.match(/downLoadBbs\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
+              if (m) {
+                const [_, param1, param2, param3, param4] = m;
+                console.log(`downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
+                
+                // downLoadBbs 함수의 파라미터를 분석해서 다운로드 URL 생성
+                // param1: brdBltNo (게시글 번호)
+                // param2: brdScnBltNo (게시판 번호) - 이 값이 파일을 구분
+                // param3: fileSeq (파일 순서)
+                // param4: 추가 파라미터 (사용하지 않음)
+                const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${post.boardId}&brdBltNo=${param1}&brdScnBltNo=${param2}&fileSeq=${param3}`;
+                const fullUrl = new URL(downloadUrl, 'https://www.hira.or.kr').href;
+                attachments.push(fullUrl);
+                console.log(`Added anticancer therapy attachment: ${fullUrl} (${title})`);
+              }
+            }
+          }
+        }
+      });
+    } else {
+      // 공고 게시판: div.fileBox 안의 파일들
+      const fileBox = $('.fileBox');
+      if (fileBox.length > 0) {
+        console.log('Found .fileBox, looking for attachments...');
+        
+        fileBox.find('a').each((_, a) => {
+          const href = $(a).attr('href') || '';
+          const onclick = $(a).attr('onclick') || '';
+          const text = $(a).text().trim();
+          
+          console.log(`Found file link: href="${href}", onclick="${onclick}", text="${text}"`);
+          
+          const push = (link) => {
+            const fullUrl = link.startsWith('http') ? link : new URL(link, 'https://www.hira.or.kr').href;
+            attachments.push(fullUrl);
+            console.log(`Added attachment: ${fullUrl}`);
+          };
+          
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
+          if (/fileDownloadBbsBltFile/.test(onclick)) {
+            const m = onclick.match(/fileDownloadBbsBltFile\('([^']+)',\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+            if (m) {
+              const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
+              const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
+              push(downloadUrl);
+            }
+          }
+          
+          // 직접 파일 링크
+          if (href && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+            push(href);
+          }
+          
+          // 다운로드 버튼이나 링크 텍스트로 판단
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href) {
+            push(href);
+          }
+        });
+      } else {
+        console.log('No .fileBox found, trying general link search...');
+        
+        // fileBox가 없는 경우 일반적인 링크 검색
+        $('a').each((_, a) => {
+          const href = $(a).attr('href') || '';
+          const onclick = $(a).attr('onclick') || '';
+          const text = $(a).text().trim();
+          
+          console.log(`Found link: href="${href}", onclick="${onclick}", text="${text}"`);
+          
+          const push = (link) => {
+            const fullUrl = link.startsWith('http') ? link : new URL(link, 'https://www.hira.or.kr').href;
+            attachments.push(fullUrl);
+            console.log(`Added attachment: ${fullUrl}`);
+          };
+          
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
+          if (/fileDownloadBbsBltFile/.test(onclick)) {
+            const m = onclick.match(/fileDownloadBbsBltFile\('([^']+)',\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+            if (m) {
+              const [_, pgmid, brdBltNo, brdScnBltNo, fileSeq] = m;
+              const downloadUrl = `/fileDownloadBbsBltFile.do?pgmid=${pgmid}&brdBltNo=${brdBltNo}&brdScnBltNo=${brdScnBltNo}&fileSeq=${fileSeq}`;
+              push(downloadUrl);
+            }
+          }
+          
+          // 직접 파일 링크
+          if (href && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+            push(href);
+          }
+          
+          // 다운로드 버튼이나 링크 텍스트로 판단
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href) {
+            push(href);
+          }
+        });
+      }
+    }
+
+    console.log(`Found ${attachments.length} attachments`);
+
+    // 첨부파일 다운로드
+    for (const url of attachments) {
+      try {
+        console.log(`Downloading attachment: ${url}`);
+        const res = await axios.get(url, { 
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': post.detailUrl
+          }
+        });
+        
+        const cd = res.headers['content-disposition'] || '';
+        const nameMatch = cd.match(/filename\*=utf-8''([^;]+)/) || cd.match(/filename="?([^";]+)/);
+        let fname = nameMatch ? decodeURIComponent(nameMatch[1]) : path.basename(url.split('?')[0]);
+        
+        // 파일명이 비어있거나 이상한 경우 기본값 사용
+        if (!fname || fname.length < 3) {
+          const timestamp = Date.now();
+          const ext = url.match(/\.([^.]+)$/)?.[1] || 'bin';
+          fname = `attachment_${timestamp}.${ext}`;
+        }
+        
+        const filePath = path.join(RAW_DIR, fname);
+        fs.writeFileSync(filePath, res.data);
+        post.attachments = post.attachments || [];
+        post.attachments.push(filePath);
+        console.log(`Downloaded: ${filePath} (${res.data.length} bytes)`);
+      } catch (e) { 
+        console.warn(`Attachment download failed: ${url}, error: ${e.message}`); 
+      }
+    }
+    
+    post.textFile = textFile;
+    return post;
+    
+  } catch (error) {
+    console.error(`Error fetching post ${post.postNo}:`, error.message);
+    return post;
+  }
+}
+
+// --------------------------- 2. DOCUMENT CREATION ----------------------------
+async function extractText(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  
+  if (ext === '.pdf') {
+    try {
+      // Dynamically import pdf-parse for ESM compatibility
+      const pdfParseModule = await import('pdf-parse');
+      const pdfParse = pdfParseModule.default;
+      return (await pdfParse(fs.readFileSync(filePath))).text;
+    } catch (error) {
+      console.warn(`PDF 처리 실패: ${filePath}, 오류: ${error.message}`);
+      return "";
+    }
+  }
+  
+  if (ext === '.hwp' || ext === '.hwpx') {
+    // 1단계: hwp.js 시도
+    try {
+      console.log(`hwp.js로 HWP 파일 처리 시도: ${filePath}`);
+      const hwp = new HWP(filePath);
+      const text = await hwp.getText(); // hwp.js는 async일 수 있음
+      if (text && text.trim().length > 0) {
+        console.log(`hwp.js 성공: ${text.length}자 추출`);
+        return text;
+      } else {
+        throw new Error('hwp.js에서 빈 텍스트 반환');
+      }
+    } catch (hwpError) {
+      console.warn(`hwp.js 실패: ${hwpError.message}, textract으로 fallback 시도`);
+      
+      // 2단계: textract fallback
+      try {
+        const text = await new Promise((resolve, reject) => {
+          textract.fromFileWithPath(filePath, (err, text) => {
+            if (err) reject(err);
+            else resolve(text || "");
+          });
+        });
+        
+        if (text && text.trim().length > 0) {
+          console.log(`textract 성공: ${text.length}자 추출`);
+          return text;
+        } else {
+          throw new Error('textract에서 빈 텍스트 반환');
+        }
+      } catch (textractError) {
+        console.warn(`textract도 실패: ${textractError.message}`);
+        
+        // 3단계: 수동 변환 안내
+        const pdfPath = filePath.replace(/\.hwpx?$/i, '.pdf');
+        console.warn(`HWP 파일 처리 실패: ${path.basename(filePath)}`);
+        console.warn(`해결 방법:`);
+        console.warn(`1. 한글에서 "${path.basename(pdfPath)}"로 PDF 저장`);
+        console.warn(`2. ${path.dirname(filePath)} 폴더에 PDF 파일 추가`);
+        console.warn(`3. 다시 동기화 실행`);
+        
+        return ""; // 빈 문자열 반환 (전체 프로세스 중단 방지)
+      }
+    }
+  }
+  
+  if (ext === '.txt') {
+    try {
+      return fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+      console.warn(`텍스트 파일 처리 실패: ${filePath}, 오류: ${error.message}`);
+      return "";
+    }
+  }
+  
+  // 기타 문서 형식 (DOC, DOCX 등)
+  try {
+    const text = await new Promise((resolve, reject) => {
+      textract.fromFileWithPath(filePath, (err, text) => {
+        if (err) reject(err);
+        else resolve(text || "");
+      });
+    });
+    return text;
+  } catch (error) {
+    console.warn(`파일 처리 실패: ${filePath}, 오류: ${error.message}`);
+    return "";
+  }
+}
+
+// Helper function to identify and parse document structure
+function identifySection(text) {
+  // First, analyze indentation
+  const indentMatch = text.match(/^(\s+)/);
+  const indentLevel = indentMatch ? Math.floor(indentMatch[0].length / 2) : 0; // 2spaces = 1 level
+
+  // Common patterns for headers in Korean documents
+  const headerPatterns = [
+    // 대제목: 1., 2., 3. ...
+    { pattern: /^[\s]*\d+\.\s+/, level: 1, type: 'numeric' },
+    // 중제목: 가., 나., 다. ...
+    { pattern: /^[\s]*[가-힣]\.\s+/, level: 2, type: 'korean' },
+    // 소제목: 1), 2), 3) ...
+    { pattern: /^[\s]*\d+\)\s+/, level: 3, type: 'numericParen' },
+    // 세부항목: (1), (2), (3) ...
+    { pattern: /^[\s]*\(\d+\)\s+/, level: 4, type: 'parenNumeric' },
+    // 기타 항목: -, •
+    { pattern: /^[\s]*[-•]\s+/, level: 5, type: 'bullet' }
+  ];
+
+  // Find the matching pattern
+  for (const { pattern, level, type } of headerPatterns) {
+    if (pattern.test(text)) {
+      const match = text.match(pattern)[0];
+      return {
+        isHeader: true,
+        level: Math.min(level + indentLevel, 5), // Consider both pattern level and indentation
+        type,
+        indentLevel,
+        headerText: match.trim(),
+        content: text.slice(match.length).trim(),
+        rawText: text  // Keep original text with indentation
+      };
+    }
+  }
+
+  // Check for potential headers based on indentation and text properties
+  const cleanText = text.trim();
+  const isShortLine = cleanText.length <= 50;  // Potential header if line is short
+  const endsWithColon = cleanText.endsWith(':');  // Often indicates a header
+  const hasNoEndPunct = !/[.!?]$/.test(cleanText);  // Headers often don't end with punctuation
+  
+  // If line is indented and looks like a header, treat it as one
+  if (indentLevel > 0 && isShortLine && (endsWithColon || hasNoEndPunct)) {
+    return {
+      isHeader: true,
+      level: Math.min(indentLevel + 2, 5),  // Convert indent to level, but cap at 5
+      type: 'indent',
+      indentLevel,
+      headerText: cleanText,
+      content: '',
+      rawText: text
+    };
+  }
+
+  return {
+    isHeader: false,
+    level: 0,
+    type: 'content',
+    indentLevel,
+    content: cleanText,
+    rawText: text
+  };
+}
+
+// Helper function to detect and parse tables
+function detectTable(lines, startIdx) {
+  // Common table border patterns
+  const borderPatterns = [
+    /^\s*[+\-=│┌┐└┘├┤─│]{3,}\s*$/, // ASCII and Unicode box drawing
+    /^\s*[\|┃]\s*[-=]{3,}\s*[\|┃]/, // Markdown-style tables
+    /^[\s│┃]*[─━═]{3,}[\s│┃]*$/    // Horizontal lines
+  ];
+
+  // Check if line might be a table border
+  const isBorder = (line) => borderPatterns.some(pattern => pattern.test(line));
+  
+  // Check if line might be table content (contains multiple whitespace-separated columns or |)
+  const isTableRow = (line) => {
+    const trimmed = line.trim();
+    return (
+      (trimmed.includes('|') || trimmed.includes('│') || trimmed.includes('┃')) ||
+      (/\s{3,}/.test(trimmed) && trimmed.split(/\s{3,}/).length >= 2)
+    );
+  };
+
+  // If current line isn't a table border or content, not a table
+  if (!isBorder(lines[startIdx]) && !isTableRow(lines[startIdx])) {
+    return null;
+  }
+
+  let tableLines = [];
+  let i = startIdx;
+  let foundHeader = false;
+  let columnCount = 0;
+
+  // Scan forward to collect all table lines
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    // Skip empty lines within reason
+    if (!trimmed) {
+      if (tableLines.length > 0 && i < lines.length - 1 && 
+          (isBorder(lines[i + 1]) || isTableRow(lines[i + 1]))) {
+        i++;
+        continue;
+      }
+      break;
+    }
+
+    if (isBorder(line)) {
+      foundHeader = true;
+      tableLines.push({ type: 'border', content: line });
+    } else if (isTableRow(line)) {
+      // Parse columns, either by | or by whitespace alignment
+      let columns;
+      if (line.includes('|') || line.includes('│') || line.includes('┃')) {
+        columns = line.split(/[|│┃]/).map(col => col.trim()).filter(Boolean);
+      } else {
+        columns = line.trim().split(/\s{3,}/).map(col => col.trim());
+      }
+
+      if (!columnCount) {
+        columnCount = columns.length;
+      } else if (columns.length < columnCount * 0.5) {
+        // If column count drops significantly, probably not part of table
+        break;
+      }
+
+      tableLines.push({ type: 'row', columns });
+    } else {
+      break;
+    }
+    i++;
+  }
+
+  // Require at least 2 rows (header + data) or 3 lines total
+  if (tableLines.length < 2 || (tableLines.length < 3 && !foundHeader)) {
+    return null;
+  }
+
+  return {
+    lines: tableLines,
+    endIdx: i - 1,
+    columnCount
+  };
+}
+
+// Helper function to analyze table headers semantically
+function analyzeTableHeaders(headers) {
+  // Common patterns in medical/drug-related tables
+  const headerPatterns = {
+    drugName: {
+      patterns: [
+        /^(약\s*품\s*명|성\s*분|제\s*품|항\s*암\s*제|약\s*제|성분명|일반명|제품명)$/,
+        /(drug|medicine|compound|substance)/i
+      ],
+      type: 'drugName'
+    },
+    dosage: {
+      patterns: [
+        /^(용\s*량|투\s*여\s*량|투여용량|용법|투여법|투약량)$/,
+        /(dosage|dose|amount)/i
+      ],
+      type: 'dosage'
+    },
+    frequency: {
+      patterns: [
+        /^(투\s*여\s*주\s*기|주\s*기|빈\s*도|투여간격|간격)$/,
+        /(frequency|interval|cycle|period)/i
+      ],
+      type: 'frequency'
+    },
+    duration: {
+      patterns: [
+        /^(투\s*여\s*기\s*간|기\s*간|치료기간|투여일수)$/,
+        /(duration|period|term|length)/i
+      ],
+      type: 'duration'
+    },
+    indication: {
+      patterns: [
+        /^(적\s*응\s*증|대\s*상|투여대상|적용대상|급여대상)$/,
+        /(indication|target|subject)/i
+      ],
+      type: 'indication'
+    },
+    sideEffect: {
+      patterns: [
+        /^(부\s*작\s*용|이상반응|독성|반응|부반응)$/,
+        /(side\s*effect|toxicity|adverse|reaction)/i
+      ],
+      type: 'sideEffect'
+    },
+    insurance: {
+      patterns: [
+        /^(급\s*여\s*기\s*준|급여|보험|수가|인정기준)$/,
+        /(insurance|coverage|criteria)/i
+      ],
+      type: 'insurance'
+    },
+    cost: {
+      patterns: [
+        /^(비\s*용|가\s*격|약가|원|금액)$/,
+        /(cost|price|amount)/i
+      ],
+      type: 'cost'
+    }
+  };
+
+  // Analyze each header
+  return headers.map(header => {
+    const trimmed = header.trim();
+    for (const [category, {patterns, type}] of Object.entries(headerPatterns)) {
+      if (patterns.some(pattern => pattern.test(trimmed))) {
+        return { original: header, type, category };
+      }
+    }
+    return { original: header, type: 'unknown', category: 'other' };
+  });
+}
+
+// Helper function to analyze table content based on column types
+function analyzeTableContent(columns, columnTypes) {
+  const analyzed = {};
+  
+  columns.forEach((value, index) => {
+    const type = columnTypes[index]?.type;
+    if (!type || type === 'unknown') return;
+
+    // Clean and normalize the value
+    let normalizedValue = value.trim();
+    
+    switch(type) {
+      case 'drugName':
+        // Store drug names in a normalized format
+        analyzed.drugName = normalizedValue.replace(/\s+/g, ' ');
+        break;
+        
+      case 'dosage':
+        // Extract numeric values and units
+        const dosageMatch = normalizedValue.match(/(\d+(?:\.\d+)?)\s*(mg|g|ml|l|mcg|µg|unit|IU|m2)/i);
+        if (dosageMatch) {
+          analyzed.dosage = {
+            value: parseFloat(dosageMatch[1]),
+            unit: dosageMatch[2].toLowerCase(),
+            original: normalizedValue
+          };
+        }
+        break;
+        
+      case 'frequency':
+        // Normalize frequency expressions
+        analyzed.frequency = {
+          original: normalizedValue,
+          normalized: normalizedValue
+            .replace(/매\s*일/g, 'daily')
+            .replace(/매\s*주/g, 'weekly')
+            .replace(/매\s*월/g, 'monthly')
+            .replace(/\d+\s*회/g, match => match.replace('회', ' times'))
+        };
+        break;
+        
+      case 'duration':
+        // Extract duration values
+        const durationMatch = normalizedValue.match(/(\d+)\s*(일|주|개월|달|년)/);
+        if (durationMatch) {
+          analyzed.duration = {
+            value: parseInt(durationMatch[1]),
+            unit: durationMatch[2],
+            original: normalizedValue
+          };
+        }
+        break;
+        
+      case 'cost':
+        // Extract and normalize cost values
+        const costMatch = normalizedValue.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*(원|만원|억원)/);
+        if (costMatch) {
+          analyzed.cost = {
+            value: parseFloat(costMatch[1].replace(/,/g, '')),
+            unit: costMatch[2],
+            original: normalizedValue
+          };
+        }
+        break;
+        
+      default:
+        // Store other recognized types as is
+        analyzed[type] = normalizedValue;
+    }
+  });
+  
+  return analyzed;
+}
+
+function tableToMarkdown(table) {
+  if (!table || !table.lines || !table.lines.length) return '';
+
+  // Get header row for analysis
+  const headerRow = table.lines.find(line => line.type === 'row');
+  if (!headerRow) return '';
+
+  // Analyze headers semantically
+  const columnTypes = analyzeTableHeaders(headerRow.columns);
+  
+  // Convert table to markdown format with semantic analysis
+  let mdLines = [];
+  let firstRow = true;
+  let analyzedRows = [];
+
+  table.lines.forEach(line => {
+    if (line.type === 'row') {
+      mdLines.push(`| ${line.columns.join(' | ')} |`);
+      
+      // Add semantic analysis for data rows
+      if (!firstRow) {
+        const analyzedContent = analyzeTableContent(line.columns, columnTypes);
+        if (Object.keys(analyzedContent).length > 0) {
+          analyzedRows.push(analyzedContent);
+        }
+      }
+      
+      if (firstRow) {
+        mdLines.push(`|${' --- |'.repeat(line.columns.length)}`);
+        firstRow = false;
+      }
     }
   });
 
-  for (const url of attachments) {
-    try {
-      const res = await axios.get(url, { responseType: 'arraybuffer' });
-      const cd = res.headers['content-disposition'] || '';
-      const nameMatch = cd.match(/filename\*=utf-8''([^;]+)/) || cd.match(/filename="?([^";]+)/);
-      const fname = nameMatch ? decodeURIComponent(nameMatch[1]) : path.basename(url.split('?')[0]);
-      const filePath = path.join(RAW_DIR, fname);
-      fs.writeFileSync(filePath, res.data);
-      post.attachments = post.attachments || [];
-      post.attachments.push(filePath);
-    } catch (e) { console.warn('Attachment DL fail', url, e.message); }
-  }
-  post.textFile = textFile;
-  return post;
+  return {
+    markdown: mdLines.join('\n'),
+    columnTypes,
+    analyzedRows
+  };
 }
 
-// --------------------------- 2. TEXT EXTRACTION ------------------------------
-async function extractText(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.pdf') return (await pdfParse(fs.readFileSync(filePath))).text;
-  if (ext === '.xlsx' || ext === '.xls') {
-    const wb = xlsx.readFile(filePath); return wb.SheetNames.map((n) => xlsx.utils.sheet_to_csv(wb.Sheets[n])).join('\n');
+async function createDocumentsFromPdfOrHwp(filePath, baseMetadata) {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    let rawText = '';
+    let lines = [];
+    let pageLineMap = [];
+    let isPdf = (ext === '.pdf');
+    let pageCount = 1;
+
+    if (isPdf) {
+      // Use pdf-parse to get text by page
+      const pdfData = await import('pdf-parse');
+      const pdfParse = pdfData.default;
+      const pdfResult = await pdfParse(fs.readFileSync(filePath));
+      pageCount = pdfResult.numpages;
+      // pdfData.textInPages: array of text per page (if available)
+      if (pdfResult.textInPages && Array.isArray(pdfResult.textInPages)) {
+        let lineIdx = 0;
+        pdfResult.textInPages.forEach((pageText, pageIdx) => {
+          const pageLines = pageText.split(/\r?\n/).filter(line => line.trim());
+          pageLines.forEach(() => pageLineMap.push(pageIdx + 1));
+          lineIdx += pageLines.length;
+        });
+        lines = pdfResult.textInPages.flatMap(pageText => pageText.split(/\r?\n/).filter(line => line.trim()));
+      } else {
+        // Fallback: treat as single text
+        rawText = pdfResult.text;
+        lines = rawText.split(/\r?\n/).filter(line => line.trim());
+        // No page info, default to 1
+        pageLineMap = Array(lines.length).fill(1);
+      }
+    } else {
+      // HWP or HWPX: fallback to previous logic
+      rawText = await extractText(filePath);
+      lines = rawText.split(/\r?\n/).filter(line => line.trim());
+      // No page info, default to 1
+      pageLineMap = Array(lines.length).fill(1);
+    }
+
+    if (!lines.length) return [];
+
+    const documents = [];
+    let currentSection = {
+      title: '',
+      level: 0,
+      type: '',
+      indentLevel: 0,
+      content: [],
+      tables: [],  // Add tables array
+      pageNum: 1,
+      rawLines: []  // Keep original formatting
+    };
+    let lastPageNum = 1;
+    let prevIndentLevel = 0;  // Track previous indent for context
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check for table
+      const table = detectTable(lines, i);
+      if (table) {
+        // Convert table to markdown and analyze content
+        const tableData = tableToMarkdown(table);
+        if (tableData && tableData.markdown) {
+          currentSection.tables.push({
+            content: tableData.markdown,
+            columnTypes: tableData.columnTypes,
+            analyzedRows: tableData.analyzedRows,
+            lineIndex: i,
+            pageNumber: pageLineMap[i] || lastPageNum
+          });
+          
+          // Skip the lines we processed as table
+          i = table.endIdx;
+          continue;
+        }
+      }
+
+      const section = identifySection(line);
+      const pageNum = pageLineMap[i] || 1;
+
+      // Detect if this might be a continuation of previous section
+      const isContinuation = section.indentLevel > prevIndentLevel && 
+                            !section.isHeader && 
+                            currentSection.content.length > 0;
+
+      // If this is a header (or significant indent change) and we have content, save current section
+      if ((section.isHeader || (section.indentLevel < prevIndentLevel && !isContinuation)) && 
+          (currentSection.content.length > 0 || currentSection.tables.length > 0)) {
+        
+        let pageContent = currentSection.title;
+        if (currentSection.content.length > 0) {
+          pageContent += '\n' + currentSection.content.join('\n');
+        }
+        
+        // Add tables to content
+        if (currentSection.tables.length > 0) {
+          currentSection.tables.forEach(table => {
+            pageContent += '\n\n' + table.content;
+          });
+        }
+
+        documents.push(new Document({
+          pageContent,
+          metadata: {
+            ...baseMetadata,
+            sectionTitle: currentSection.title,
+            sectionLevel: currentSection.level,
+            sectionType: currentSection.type,
+            indentLevel: currentSection.indentLevel,
+            pageNumber: lastPageNum,
+            isStructured: true,
+            hasTables: currentSection.tables.length > 0,
+            tableCount: currentSection.tables.length,
+            tables: currentSection.tables.map(table => ({
+              ...table,
+              hasAnalyzedContent: table.analyzedRows && table.analyzedRows.length > 0,
+              columnTypes: table.columnTypes
+            })),
+            rawText: currentSection.rawLines.join('\n')  // Preserve original formatting
+          }
+        }));
+
+        // Reset current section
+        currentSection.content = [];
+        currentSection.tables = [];
+        currentSection.rawLines = [];
+      }
+
+      // Update current section
+      if (section.isHeader) {
+        currentSection.title = `${section.headerText}${section.content}`;
+        currentSection.level = section.level;
+        currentSection.type = section.type;
+        currentSection.indentLevel = section.indentLevel;
+        lastPageNum = pageNum;
+      } else {
+        currentSection.content.push(section.content);
+      }
+      currentSection.rawLines.push(section.rawText);
+      prevIndentLevel = section.indentLevel;
+    }
+
+    // Don't forget to save the last section
+    if (currentSection.content.length > 0 || currentSection.tables.length > 0) {
+      let pageContent = currentSection.title;
+      if (currentSection.content.length > 0) {
+        pageContent += '\n' + currentSection.content.join('\n');
+      }
+      
+      // Add tables to content
+      if (currentSection.tables.length > 0) {
+        currentSection.tables.forEach(table => {
+          pageContent += '\n\n' + table.content;
+        });
+      }
+
+      documents.push(new Document({
+        pageContent,
+        metadata: {
+          ...baseMetadata,
+          sectionTitle: currentSection.title,
+          sectionLevel: currentSection.level,
+          sectionType: currentSection.type,
+          indentLevel: currentSection.indentLevel,
+          pageNumber: lastPageNum,
+          isStructured: true,
+          hasTables: currentSection.tables.length > 0,
+          tableCount: currentSection.tables.length,
+          tables: currentSection.tables.map(table => ({
+            ...table,
+            hasAnalyzedContent: table.analyzedRows && table.analyzedRows.length > 0,
+            columnTypes: table.columnTypes
+          })),
+          rawText: currentSection.rawLines.join('\n')
+        }
+      }));
+    }
+
+    const totalTables = documents.reduce((sum, doc) => sum + (doc.metadata.tableCount || 0), 0);
+    console.log(`${path.basename(filePath)} processed → ${documents.length} sections identified, ${totalTables} tables found.`);
+    return documents;
+
+  } catch (error) {
+    console.warn(`구조화 처리 실패: ${filePath}, 오류: ${error.message}`);
+    // Fallback to basic text splitting if structure analysis fails
+    const rawText = await extractText(filePath);
+    return createDocumentsFromText(rawText, { ...baseMetadata, isStructured: false });
   }
-  if (ext === '.hwp' || ext === '.hwpx') {
-    try { return new Hwp(filePath).getText(); } catch {}
-  }
-  return new Promise((res, rej) => textract.fromFileWithPath(filePath, (err, txt) => (err ? rej(err) : res(txt))));
 }
-// --------------------------- 3. CHUNK + VECTOR -------------------------------
-const splitter = new RecursiveCharacterTextSplitter({ chunkSize: CHUNK_SIZE, chunkOverlap: CHUNK_OVERLAP });
-async function makeDocs(text, meta) { return (await splitter.splitText(text)).map((c, i) => new Document({ pageContent: c, metadata: { ...meta, chunk: i } })); }
+
+async function createDocumentsFromExcel(filePath, baseMetadata) {
+  try {
+    const workbook = xlsx.readFile(filePath);
+    const documents = [];
+    workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = xlsx.utils.sheet_to_json(sheet);
+
+      rows.forEach((row, rowIndex) => {
+        const pageContent = Object.entries(row)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join('\n');
+        
+        const metadata = {
+          ...baseMetadata,
+          sheetName,
+          rowNumber: rowIndex + 2, // sheet_to_json default header is 1st row, so data starts from 2.
+          ...row,
+        };
+        documents.push(new Document({ pageContent, metadata }));
+      });
+    });
+    console.log(`Excel file ${path.basename(filePath)} processed → ${documents.length} documents (rows).`);
+    return documents;
+  } catch (error) {
+    console.warn(`Excel 파일 처리 실패: ${filePath}, 오류: ${error.message}`);
+    return [];
+  }
+}
+
 async function upsertDocs(docs) {
+  console.log(`Skipping vector store for now, just saving ${docs.length} documents to JSON`);
+  
+  // 임시로 벡터 저장소 대신 JSON 파일로 저장
   const storePath = path.join(VECTOR_DIR, 'hira');
   fs.mkdirSync(storePath, { recursive: true });
-  const vs = fs.existsSync(path.join(storePath, 'hnswlib.index')) ? await HNSWLib.load(storePath, embeddings) : await HNSWLib.fromDocuments([], embeddings);
-  await vs.addDocuments(docs); await vs.save(storePath);
+  
+  const storeFile = path.join(storePath, 'documents.json');
+  
+  // 기존 문서 로드
+  let existingDocs = [];
+  if (fs.existsSync(storeFile)) {
+    try {
+      existingDocs = JSON.parse(fs.readFileSync(storeFile, 'utf-8'));
+    } catch (error) {
+      console.warn('Failed to load existing documents:', error.message);
+    }
+  }
+  
+  // 새 문서 추가
+  const allDocs = [...existingDocs, ...docs];
+  fs.writeFileSync(storeFile, JSON.stringify(allDocs, null, 2));
+  
+  console.log(`Saved ${allDocs.length} total documents to ${storeFile}`);
 }
 
 // --------------------------- 4. SYNC PIPELINE --------------------------------
@@ -142,44 +1099,108 @@ async function processBoard(boardId, limit, force = false) {
   const registry = loadRegistry();
   let added = 0, newDetected = false;
   const posts = await fetchBoard(boardId, limit);
+  
+  console.log(`Processing ${posts.length} posts for board ${boardId} (force: ${force})`);
+  
   for (const p of posts) {
     const processed = registry[boardId]?.includes(p.postNo);
-    if (processed && !force) { console.log(`Skip #${p.postNo} (${boardId})`); continue; }
+    if (processed && !force) { 
+      console.log(`Skip #${p.postNo} (${boardId}) - already processed`); 
+      continue; 
+    }
+    
+    console.log(`Processing new post #${p.postNo} (${boardId}): "${p.title}"`);
+    
     const post = await fetchPost(p);
     const docs = [];
-    docs.push(...(await makeDocs(fs.readFileSync(post.textFile, 'utf-8'), { source: 'body', boardId, postNo: post.postNo, filePath: post.textFile })));
-    for (const f of post.attachments || []) docs.push(...(await makeDocs(await extractText(f), { source: path.basename(f), boardId, postNo: post.postNo, filePath: f,fileUrl: `/files/${path.basename(f)}`  })));
-    await upsertDocs(docs);
-    added += docs.length;
-    registry[boardId] = registry[boardId] || [];
-    if (!registry[boardId].includes(post.postNo)) registry[boardId].push(post.postNo);
-    newDetected = true;
-    console.log(`Post #${post.postNo} (${boardId}) processed → ${docs.length} chunks.`);
+
+    // Process body text from post
+    const bodyText = fs.readFileSync(post.textFile, 'utf-8');
+    docs.push(...(await createDocumentsFromText(bodyText, { source: 'body', boardId, postNo: post.postNo, filePath: post.textFile })));
+
+    // Process attachments, using the appropriate document creator
+    for (const f of post.attachments || []) {
+      const ext = path.extname(f).toLowerCase();
+      const fileMetadata = {
+        source: path.basename(f),
+        boardId,
+        postNo: post.postNo,
+        filePath: f,
+        fileUrl: `/files/${path.basename(f)}`
+      };
+      let attachmentDocs = [];
+
+      if (ext === '.xlsx' || ext === '.xls') {
+        attachmentDocs = await createDocumentsFromExcel(f, fileMetadata);
+      } else if (ext === '.pdf' || ext === '.hwp' || ext === '.hwpx') {
+        attachmentDocs = await createDocumentsFromPdfOrHwp(f, fileMetadata);
+      } else {
+        const textContent = await extractText(f);
+        if (textContent && textContent.trim().length > 0) {
+          attachmentDocs = await createDocumentsFromText(textContent, fileMetadata);
+        }
+      }
+      docs.push(...attachmentDocs);
+    }
+
+    if (docs.length > 0) {
+      await upsertDocs(docs);
+      added += docs.length;
+      registry[boardId] = registry[boardId] || [];
+      if (!registry[boardId].includes(post.postNo)) registry[boardId].push(post.postNo);
+      newDetected = true;
+      console.log(`Post #${post.postNo} (${boardId}) processed → ${docs.length} chunks/rows.`);
+    } else {
+      console.log(`Post #${post.postNo} (${boardId}) processed → 0 chunks. Nothing to add.`);
+    }
   }
   saveRegistry(registry);
   return { added, newDetected };
 }
 
 async function sync(force = false) {
-  const resultA = await processBoard(BOARD_A, 1, force);
+  console.log(`Starting sync process (force: ${force})...`);
+  
+  const resultA = await processBoard(BOARD_A, 3, force);
+  console.log(`Board A result: ${resultA.added} chunks added, new detected: ${resultA.newDetected}`);
+  
   // If board A had a new post, board B must be refreshed regardless of change.
   const forceB = force || resultA.newDetected;
-  const resultB = await processBoard(BOARD_B, 1, forceB);
+  const resultB = await processBoard(BOARD_B, 3, forceB);
+  console.log(`Board B result: ${resultB.added} chunks added, new detected: ${resultB.newDetected}`);
+  
   const total = resultA.added + resultB.added;
-  console.log(`Sync done. Added ${total} chunks (A:${resultA.added}, B:${resultB.added})`);
+  console.log(`Sync completed. Total: ${total} chunks added (A:${resultA.added}, B:${resultB.added})`);
+  
+  if (total > 0) {
+    console.log('✅ New content has been added to the database');
+  } else {
+    console.log('ℹ️ No new content found');
+  }
 }
 
 // --------------------------- 5. QUERY ----------------------------------------
 async function query(q) {
   const storePath = path.join(VECTOR_DIR, 'hira');
-  if (!fs.existsSync(path.join(storePath, 'hnswlib.index'))) { console.error('Vector store empty — run --sync first'); return; }
-  const vs = await HNSWLib.load(storePath, embeddings);
-  const res = await vs.similaritySearch(q, 5);
-  res.forEach((r, i) => {
-    const m = r.metadata;
-    console.log(`\n[${i + 1}] score≈${r.score?.toFixed(3)}  post #${m.postNo} (${m.boardId})  file: ${m.filePath}`);
-    console.log(`   ${r.pageContent.slice(0, 200)}…`);
-  });
+  const storeFile = path.join(storePath, 'memory_store.json');
+  
+  if (!fs.existsSync(storeFile)) { 
+    console.error('Vector store empty — run --sync first'); 
+    return; 
+  }
+  
+  try {
+    const existingDocs = JSON.parse(fs.readFileSync(storeFile, 'utf-8'));
+    const vs = await MemoryVectorStore.fromDocuments(existingDocs, embeddings);
+    const res = await vs.similaritySearch(q, 5);
+    res.forEach((r, i) => {
+      const m = r.metadata;
+      console.log(`\n[${i + 1}] score≈${r.score?.toFixed(3)}  post #${m.postNo} (${m.boardId})  file: ${m.filePath}`);
+      console.log(`   ${r.pageContent.slice(0, 200)}…`);
+    });
+  } catch (error) {
+    console.error('Error querying vector store:', error.message);
+  }
 }
 
 // --------------------------- 6. CRON -----------------------------------------
@@ -194,3 +1215,5 @@ const argv = minimist(process.argv.slice(2));
   if (argv.sync) await sync(argv.force === true);
   if (argv.query) await query(argv.query);
 })();
+
+export { sync, query, VECTOR_DIR };

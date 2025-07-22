@@ -1,19 +1,24 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const path = require('path');
-const dotenv = require('dotenv');
-const multer = require('multer');
-const fs = require('fs');
-const {
-  sync,           // 게시판 동기화
-  query,          // 벡터 검색
-  VECTOR_DIR: VECTOR_STORE_DIR, // (필요하면) 벡터 폴더 경로
-  NAMESPACE
-} = require('./utils/hira_data_module');
+// ESM imports for Node.js
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import path from 'path';
+import dotenv from 'dotenv';
+import multer from 'multer';
+import fs from 'fs';
+import { sync, query, VECTOR_DIR as VECTOR_STORE_DIR } from './utils/hira_data_module.js';
+import configModule from '../config.js';
+const config = configModule.default || configModule;
+
+// ESM-compatible __dirname
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const CONTENT_DIR = path.join(__dirname, 'data', 'content');
 
 // Import the config file
-const config = require('../config');
+// const config = require('../config'); // This line is removed as per the new_code
 
 // Comment out LangChain imports for now since they're not being used
 // const { OpenAI } = require('@langchain/openai');
@@ -59,10 +64,11 @@ app.options('*', cors());
 const openaiAvailable = config.ai.openaiAvailable;
 
 // Import MCP Server functionality
-let mcpRegistry;
-try {
-  const { Registry } = require('@modelcontextprotocol/sdk/server');
-  mcpRegistry = new Registry();
+// MCP Registry 관련 require 및 초기화 코드 주석 처리
+// let mcpRegistry;
+// try {
+//   const { Registry } = require('@modelcontextprotocol/sdk/server');
+//   mcpRegistry = new Registry();
   
   // Add new MCP tool for analyzing medical records
   app.post('/api/mcp/tools/analyzePatientRecord', async (req, res) => {
@@ -452,10 +458,10 @@ try {
   });
   
   console.log('MCP endpoints registered successfully');
-} catch (error) {
-  console.warn('Failed to initialize MCP Registry:', error.message);
-  mcpRegistry = null;
-}
+// } catch (error) {
+//   console.warn('Failed to initialize MCP Registry:', error.message);
+//   mcpRegistry = null;
+// }
 
 // Basic route for testing
 app.get('/api/health', (req, res) => {
@@ -1157,6 +1163,26 @@ app.post('/api/suggest-questions', async (req, res) => {
   }
 });
 
+// API: List available files in content directory
+app.get('/api/files', (req, res) => {
+  fs.readdir(CONTENT_DIR, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to read content directory' });
+    }
+    // Filter only files (not directories)
+    const fileList = files.filter(f => fs.statSync(path.join(CONTENT_DIR, f)).isFile())
+      .map(f => {
+        const stat = fs.statSync(path.join(CONTENT_DIR, f));
+        return {
+          filename: f,
+          size: stat.size,
+          mtime: stat.mtime
+        };
+      });
+    res.json({ files: fileList });
+  });
+});
+
 
 (async () => {
   try {
@@ -1181,4 +1207,4 @@ process.on('unhandledRejection', (reason, promise) => {
   // For now, don't terminate the process - just log the error
 });
 
-module.exports = app;
+// module.exports = app; // ESM 환경에서는 필요 없음, 삭제 또는 주석 처리

@@ -2,12 +2,13 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
   app.use(
-    ['/api', '/cancer_treatment_guidelines.pdf', '/favicon.ico', '/logo192.png'],
+    ['/api', '/files', '/cancer_treatment_guidelines.pdf', '/favicon.ico', '/logo192.png'],
     createProxyMiddleware({
-      target: 'http://10.10.10.103:3001',
+      target: 'http://localhost:3001',
       changeOrigin: true,
       pathRewrite: {
-        '^/api': '/api', // no rewrite needed, just for clarity
+        '^/api': '/api',
+        '^/files': '/files',
       },
       onError: (err, req, res) => {
         console.log('Proxy error:', err);
