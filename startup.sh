@@ -30,14 +30,20 @@ fi
 sleep 2
 
 # Check if node_modules exists, if not install dependencies
+echo "Checking dependencies..."
+
 if [ ! -d "node_modules" ]; then
-  echo "Installing main dependencies..."
+  echo "Main node_modules not found. Installing main dependencies..."
   npm install
+else
+  echo "Main dependencies already installed. Skipping npm install."
 fi
 
 if [ ! -d "client/node_modules" ]; then
-  echo "Installing client dependencies..."
+  echo "Client node_modules not found. Installing client dependencies..."
   cd client && npm install && cd ..
+else
+  echo "Client dependencies already installed. Skipping npm install."
 fi
 
 # Start the application

@@ -1,5 +1,5 @@
 import express from 'express';
-import { searchWithSources } from '../utils/hira_data_module.js';
+import enhancedDataModule from '../utils/enhanced_data_module.js';
 import path from 'path';
 import fs from 'fs';
 import { VECTOR_DIR } from '../config/config.js';
@@ -17,7 +17,7 @@ router.post('/search', async (req, res) => {
       });
     }
 
-    const { results, sources } = await searchWithSources(query, limit);
+    const { results, sources } = await enhancedDataModule.searchWithSources(query, limit);
     
     res.json({
       success: true,

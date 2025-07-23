@@ -6,7 +6,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import fs from 'fs';
-import { sync, query, searchWithSources, VECTOR_DIR as VECTOR_STORE_DIR } from './utils/hira_data_module.js';
+import enhancedDataModule, { VECTOR_DIR as VECTOR_STORE_DIR } from './utils/enhanced_data_module.js';
 import configModule from '../config.js';
 const config = configModule.default || configModule;
 
@@ -1166,7 +1166,7 @@ app.post('/api/suggest-questions', async (req, res) => {
 // API: 소스 추적 검색
 app.post('/api/search', async (req, res) => {
   try {
-    const { query, limit = 5 } = req.body;
+    const { query, limit = 5, searchType = 'hybrid' } = req.body;
     
     if (!query) {
       return res.status(400).json({ 
@@ -1174,15 +1174,39 @@ app.post('/api/search', async (req, res) => {
       });
     }
 
-    const { results, sources } = await searchWithSources(query, limit);
+    let results, sources;
+    
+    if (searchType === 'hybrid') {
+      // 하이브리드 검색
+      const searchResult = await enhancedDataModule.searchWithSources(query, limit);
+      results = searchResult.results;
+      sources = searchResult.sources;
+    } else if (searchType === 'section') {
+      // 섹션별 검색
+      const { section } = req.body;
+      if (!section) {
+        return res.status(400).json({ error: '섹션을 지정해주세요.' });
+      }
+      
+      const searchResult = await enhancedDataModule.hybridSearch.searchBySection(query, section, limit);
+      results = searchResult;
+      sources = []; // 섹션 검색은 소스 정보가 제한적
+    } else {
+      // 기본 벡터 검색
+      const searchResult = await enhancedDataModule.searchWithSources(query, limit);
+      results = searchResult.results;
+      sources = searchResult.sources;
+    }
     
     res.json({
       success: true,
       query,
+      searchType,
       results: results.map(r => ({
         content: r.content,
         score: r.score,
-        sourceInfo: r.sourceInfo
+        sourceInfo: r.sourceInfo,
+        searchType: r.searchType || 'vector'
       })),
       sources,
       totalResults: results.length,
@@ -1193,6 +1217,40 @@ app.post('/api/search', async (req, res) => {
     console.error('Search error:', error);
     res.status(500).json({ 
       error: '검색 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+// API: 섹션별 검색
+app.post('/api/search/section', async (req, res) => {
+  try {
+    const { query, section, limit = 3 } = req.body;
+    
+    if (!query || !section) {
+      return res.status(400).json({ 
+        error: '검색어와 섹션을 입력해주세요.' 
+      });
+    }
+
+    const results = await enhancedDataModule.hybridSearch.searchBySection(query, section, limit);
+    
+    res.json({
+      success: true,
+      query,
+      section,
+      results: results.map(r => ({
+        content: r.content,
+        score: r.score,
+        sourceInfo: r.sourceInfo,
+        searchType: 'section'
+      })),
+      totalResults: results.length
+    });
+    
+  } catch (error) {
+    console.error('Section search error:', error);
+    res.status(500).json({ 
+      error: '섹션별 검색 중 오류가 발생했습니다.' 
     });
   }
 });
@@ -1217,10 +1275,146 @@ app.get('/api/files', (req, res) => {
   });
 });
 
+// API: 동기화 상태 조회
+app.get('/api/sync/status', (req, res) => {
+  try {
+    const metadata = enhancedDataModule.getMetadata();
+    res.json({
+      success: true,
+      metadata
+    });
+  } catch (error) {
+    console.error('동기화 상태 조회 오류:', error);
+    res.status(500).json({ error: '동기화 상태 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// API: 전체 동기화 실행
+app.post('/api/sync', async (req, res) => {
+  try {
+    const results = await enhancedDataModule.sync();
+    res.json({
+      success: true,
+      results
+    });
+  } catch (error) {
+    console.error('동기화 오류:', error);
+    res.status(500).json({ error: '동기화 중 오류가 발생했습니다.' });
+  }
+});
+
+// API: 특정 게시판 동기화
+app.post('/api/sync/:boardId', async (req, res) => {
+  try {
+    const { boardId } = req.params;
+    const { limit = 1 } = req.body; // 기본값을 1로 변경
+    
+    const result = await enhancedDataModule.syncBoard(boardId, limit);
+    res.json({
+      success: true,
+      boardId,
+      result
+    });
+  } catch (error) {
+    console.error('게시판 동기화 오류:', error);
+    res.status(500).json({ error: '게시판 동기화 중 오류가 발생했습니다.' });
+  }
+});
+
+// API: List downloaded files in raw directory
+app.get('/api/downloaded-files', (req, res) => {
+  const rawDir = path.join(__dirname, 'data', 'raw');
+  
+  // raw 디렉토리가 없으면 빈 배열 반환
+  if (!fs.existsSync(rawDir)) {
+    return res.json({ files: [] });
+  }
+  
+  fs.readdir(rawDir, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to read raw directory' });
+    }
+    
+    // Filter only files (not directories)
+    const fileList = files.filter(f => {
+      const filePath = path.join(rawDir, f);
+      return fs.statSync(filePath).isFile();
+    }).map(f => {
+      const filePath = path.join(rawDir, f);
+      const stat = fs.statSync(filePath);
+      const ext = path.extname(f).toLowerCase();
+      
+      // 파일명에서 날짜 추출
+      let uploadDate = null;
+      const dateMatch = f.match(/(\d{8})/); // YYYYMMDD 형식
+      if (dateMatch) {
+        const dateStr = dateMatch[1];
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        uploadDate = new Date(year, month - 1, day); // month는 0-based
+      }
+      
+      // 게시판 정보 추출
+      let boardName = '알 수 없음';
+      if (f.startsWith('공고_')) {
+        boardName = '공고';
+      } else if (f.startsWith('항암화학요법_')) {
+        boardName = '항암화학요법';
+      }
+      
+      return {
+        filename: f,
+        originalName: f, // 원본 파일명
+        size: stat.size,
+        mtime: stat.mtime,
+        uploadDate: uploadDate, // 파일명에서 추출한 업로드 날짜
+        boardName: boardName, // 게시판 이름
+        extension: ext,
+        downloadUrl: `/files/${encodeURIComponent(f)}`,
+        readableSize: formatFileSize(stat.size)
+      };
+    });
+    
+    res.json({ 
+      files: fileList,
+      totalFiles: fileList.length,
+      totalSize: fileList.reduce((sum, f) => sum + f.size, 0)
+    });
+  });
+});
+
+// API: Check if file exists
+app.get('/api/file-exists/:filename', (req, res) => {
+  const { filename } = req.params;
+  const rawDir = path.join(__dirname, 'data', 'raw');
+  const filePath = path.join(rawDir, decodeURIComponent(filename));
+  
+  if (fs.existsSync(filePath)) {
+    const stat = fs.statSync(filePath);
+    res.json({ 
+      exists: true, 
+      size: stat.size,
+      mtime: stat.mtime
+    });
+  } else {
+    res.json({ exists: false });
+  }
+});
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 
 (async () => {
   try {
-    await sync();                  // 새 글 있을 때만 임베딩
+    await enhancedDataModule.sync();                  // 새 글 있을 때만 임베딩
   } catch (e) {
     console.warn('[SYNC] 초기 동기화 실패:', e.message);
   }

@@ -13,6 +13,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mode, setMode] = useState('chat'); // 'chat' or 'pdf'
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const handleSendMessage = async (message) => {
     if (!message.trim()) return;
@@ -84,7 +85,7 @@ function App() {
             className={mode === 'pdf' ? 'active' : ''} 
             onClick={() => setMode('pdf')}
           >
-            📄 PDF 뷰어
+            📁 파일 목록
           </button>
         </div>
       </div>
@@ -98,10 +99,10 @@ function App() {
       ) : (
         <div style={{display:'flex', minHeight:'calc(100vh - 80px)'}}>
           <div style={{flex:'0 0 350px', borderRight:'1px solid #eee', background:'#fafbfc'}}>
-            <FileList onFileSelect={() => {}} />
+            <FileList onFileSelect={(file) => setSelectedFile(file)} />
           </div>
           <div style={{flex:'1 1 0', minWidth:0}}>
-            <FilePreview file={null} />
+            <FilePreview file={selectedFile} />
           </div>
         </div>
       )}

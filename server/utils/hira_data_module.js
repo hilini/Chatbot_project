@@ -23,7 +23,11 @@ import { Document } from 'langchain/document';
 import 'dotenv/config';
 
 // --------------------------- Paths & constants --------------------------------
-const DATA_DIR       = path.resolve('./data');
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const DATA_DIR       = path.resolve(__dirname, '..', 'data');
 const RAW_DIR        = path.join(DATA_DIR, 'raw');
 const TEXT_DIR       = path.join(DATA_DIR, 'text');
 const VECTOR_DIR     = path.join(DATA_DIR, 'vector_store');
@@ -34,8 +38,8 @@ const BOARD_A = 'HIRAA030023010000';
 const BOARD_B = 'HIRAA030023030000';
 
 const CRAWL_TARGETS  = [
-  { boardId: BOARD_A, limit: 3 }, // 최근 3개 확인 (새로운 게시글 놓치지 않기 위해)
-  { boardId: BOARD_B, limit: 3 }
+  { boardId: BOARD_A, limit: 1 }, // 최근 1개만 확인 (가장 최신 게시글만)
+  { boardId: BOARD_B, limit: 1 }
 ];
 
 const CHUNK_SIZE     = 1000;
@@ -288,68 +292,65 @@ async function fetchPost(post) {
     
     // 첨부파일 찾기 - 게시판별로 다른 구조 처리
     if (post.boardId === BOARD_B) {
-      // 항암화학요법 게시판: 테이블에서 다운로드 버튼 찾기
+      // 항암화학요법 게시판: 모든 첨부파일 다운로드
       console.log('Processing anticancer therapy board attachments...');
       
-      $('table tbody tr').each((_, tr) => {
-        const tds = $(tr).find('td');
-        if (tds.length >= 3) {
-          const title = tds.eq(1).text().trim(); // 제목
-          const downloadCell = tds.eq(2); // 첨부 셀
-          const downloadLink = downloadCell.find('a.btn_file');
-          
-          if (downloadLink.length > 0) {
-            const onclick = downloadLink.attr('onclick') || '';
-            console.log(`Found download link for "${title}": ${onclick}`);
+              $('table tbody tr').each((_, tr) => {
+          const tds = $(tr).find('td');
+          if (tds.length >= 3) {
+            const title = tds.eq(1).text().trim(); // 제목
+            const downloadCell = tds.eq(2); // 첨부 셀
+            const downloadLink = downloadCell.find('a.btn_file');
             
-            // downLoadBbs 함수 호출 패턴 - 더 정확한 정규식 사용
-            if (/downLoadBbs/.test(onclick)) {
-              // 다양한 패턴 시도
-              let m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+            if (downloadLink.length > 0) {
+              const onclick = downloadLink.attr('onclick') || '';
+              console.log(`Found download link for "${title}": ${onclick}`);
               
-              if (!m) {
-                // 공백이 없는 패턴도 시도
-                m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
-              }
-              
-              if (!m) {
-                // 숫자만 있는 패턴도 시도
-                m = onclick.match(/downLoadBbs\s*\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
-              }
-              
-              if (m) {
-                const [_, param1, param2, param3, param4] = m;
-                console.log(`downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
+              // downLoadBbs 함수 호출 패턴 - 더 정확한 정규식 사용
+              if (/downLoadBbs/.test(onclick)) {
+                // 다양한 패턴 시도
+                let m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
                 
-                // 파라미터 검증
-                if (param1 && param2 && param3) {
-                  // 실제 사이트 분석 결과:
-                  // param1: fileSeq (파일 순서) - '1', '2' 등
-                  // param2: brdBltNo (게시글 번호) - '8', '7' 등  
-                  // param3: brdScnBltNo (게시판 번호) - '5' 등
-                  // param4: 추가 파라미터 - '487' 등
+                if (!m) {
+                  // 공백이 없는 패턴도 시도
+                  m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
+                }
+                
+                if (!m) {
+                  // 숫자만 있는 패턴도 시도
+                  m = onclick.match(/downLoadBbs\s*\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
+                }
+                
+                if (m) {
+                  const [_, param1, param2, param3, param4] = m;
+                  console.log(`downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
                   
-                  // 실제 사이트 분석 결과에 따른 정확한 URL 패턴
-                  const downloadUrl = `/bbs/bbsCDownLoad.do?apndNo=${param1}&apndBrdBltNo=${param2}&apndBrdTyNo=${param3}&apndBltNo=${param4}`;
-                  
-                  console.log(`Generated download URL for "${title}": ${downloadUrl}`);
-                  const fullUrl = new URL(downloadUrl, 'https://www.hira.or.kr').href;
-                  if (!attachments.includes(fullUrl)) {
-                    attachments.push(fullUrl);
-                    console.log(`  Added: ${fullUrl}`);
+                  // 파라미터 검증
+                  if (param1 && param2 && param3) {
+                    // 실제 사이트 분석 결과에 따른 정확한 URL 패턴
+                    const downloadUrl = `/bbs/bbsCDownLoad.do?apndNo=${param1}&apndBrdBltNo=${param2}&apndBrdTyNo=${param3}&apndBltNo=${param4}`;
+                    
+                    console.log(`Generated download URL for "${title}": ${downloadUrl}`);
+                    const fullUrl = new URL(downloadUrl, 'https://www.hira.or.kr').href;
+                    if (!attachments.includes(fullUrl)) {
+                      attachments.push(fullUrl);
+                      console.log(`  Added: ${fullUrl}`);
+                    }
+                  } else {
+                    console.warn(`Invalid downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
                   }
                 } else {
-                  console.warn(`Invalid downLoadBbs parameters for "${title}": ${param1}, ${param2}, ${param3}, ${param4}`);
+                  console.warn(`Failed to parse downLoadBbs function call: ${onclick}`);
                 }
-              } else {
-                console.warn(`Failed to parse downLoadBbs function call: ${onclick}`);
               }
             }
           }
-        }
-      });
+        });
     } else {
-      // 공고 게시판: div.fileBox 안의 파일들
+      // 공고 게시판: 모든 첨부파일 다운로드
+      console.log('Processing announcement board attachments...');
+      
+      // 1. .fileBox에서 첨부파일 찾기
       const fileBox = $('.fileBox');
       if (fileBox.length > 0) {
         console.log('Found .fileBox, looking for attachments...');
@@ -371,7 +372,7 @@ async function fetchPost(post) {
             }
           };
           
-          // downLoadBbs 함수 호출 패턴 (공고 게시판에서도 사용)
+          // downLoadBbs 함수 호출 패턴 (공고 게시판)
           if (/downLoadBbs/.test(onclick)) {
             let m = onclick.match(/downLoadBbs\s*\(\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\s*\)/);
             
@@ -391,13 +392,8 @@ async function fetchPost(post) {
               
               if (param1 && param2 && param3) {
                 // 공고 게시판의 실제 다운로드 URL 패턴
-                // param1: fileSeq (파일 순서)
-                // param2: brdBltNo (게시글 번호)
-                // param3: brdScnBltNo (게시판 번호)
-                // param4: 추가 파라미터
                 const downloadUrl = `/bbs/bbsCDownLoad.do?apndNo=${param1}&apndBrdBltNo=${param2}&apndBrdTyNo=${param3}&apndBltNo=${param4}`;
                 console.log(`Generated download URL (공고): ${downloadUrl}`);
-                console.log(`Parameters: fileSeq=${param1}, brdBltNo=${param2}, brdScnBltNo=${param3}, extra=${param4}`);
                 push(downloadUrl);
               } else {
                 console.warn(`Invalid downLoadBbs parameters (공고): ${param1}, ${param2}, ${param3}, ${param4}`);
@@ -407,7 +403,7 @@ async function fetchPost(post) {
             }
           }
           
-          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판) - 더 정확한 정규식 사용
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
           if (/fileDownloadBbsBltFile/.test(onclick)) {
             let m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
             
@@ -431,13 +427,13 @@ async function fetchPost(post) {
             }
           }
           
-          // 직접 파일 링크 (href가 실제 파일인 경우만)
-          if (href && href !== '#none' && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+          // PDF 파일 다운로드 (공고 게시판)
+          if (href && href !== '#none' && /\.pdf$/i.test(href)) {
             push(href);
           }
           
-          // 다운로드 버튼이나 링크 텍스트로 판단 (href가 유효한 경우만)
-          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none') {
+          // 다운로드 버튼 처리 (href가 유효한 경우만)
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none' && /\.pdf$/i.test(href)) {
             push(href);
           }
         });
@@ -468,7 +464,7 @@ async function fetchPost(post) {
             }
           };
           
-          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판) - 더 정확한 정규식 사용
+          // fileDownloadBbsBltFile 함수 호출 패턴 (공고 게시판)
           if (/fileDownloadBbsBltFile/.test(onclick)) {
             let m = onclick.match(/fileDownloadBbsBltFile\s*\(\s*['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
             
@@ -492,13 +488,13 @@ async function fetchPost(post) {
             }
           }
           
-          // 직접 파일 링크 (href가 실제 파일인 경우만)
-          if (href && href !== '#none' && /\.(pdf|hwp|hwpx|docx?|xlsx?)$/i.test(href)) {
+          // PDF 파일 다운로드 (공고 게시판 - fallback)
+          if (href && href !== '#none' && /\.pdf$/i.test(href)) {
             push(href);
           }
           
-          // 다운로드 버튼이나 링크 텍스트로 판단 (href가 유효한 경우만)
-          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none') {
+          // PDF 다운로드 버튼만 처리 (href가 유효한 경우만)
+          if (text && /다운로드|첨부|파일|download/i.test(text) && href && href !== '#none' && /\.pdf$/i.test(href)) {
             push(href);
           }
         });
@@ -568,15 +564,25 @@ async function fetchPost(post) {
         const cd = res.headers['content-disposition'] || '';
         
         if (cd) {
-          // UTF-8 인코딩된 파일명
+          // UTF-8 인코딩된 파일명 (RFC 5987)
           let nameMatch = cd.match(/filename\*=utf-8''([^;]+)/);
           if (nameMatch) {
-            fname = decodeURIComponent(nameMatch[1]);
+            try {
+              fname = decodeURIComponent(nameMatch[1]);
+            } catch (e) {
+              console.warn('UTF-8 filename decode failed:', e.message);
+            }
           } else {
-            // 일반 파일명
+            // 일반 파일명 (RFC 6266)
             nameMatch = cd.match(/filename="?([^";]+)/);
             if (nameMatch) {
               fname = nameMatch[1];
+              // URL 디코딩 시도
+              try {
+                fname = decodeURIComponent(fname);
+              } catch (e) {
+                console.warn('URL decode failed for filename:', e.message);
+              }
             }
           }
         }
@@ -585,9 +591,15 @@ async function fetchPost(post) {
         if (!fname) {
           const urlPath = url.split('?')[0];
           fname = path.basename(urlPath);
+          // URL 디코딩 시도
+          try {
+            fname = decodeURIComponent(fname);
+          } catch (e) {
+            console.warn('URL decode failed for basename:', e.message);
+          }
         }
         
-        // 파일명이 여전히 없거나 이상한 경우 기본값 사용
+        // 파일명이 여전히 없거나 이상한 경우 게시판 이름으로 저장
         if (!fname || fname.length < 3 || fname === 'none' || fname === '#none') {
           const timestamp = Date.now();
           let ext = 'bin';
@@ -599,14 +611,44 @@ async function fetchPost(post) {
           else if (contentType.includes('word') || contentType.includes('document')) ext = 'docx';
           else if (contentType.includes('text')) ext = 'txt';
           
-          fname = `attachment_${timestamp}.${ext}`;
+          // 게시판 이름으로 파일명 생성
+          const boardName = post.boardId === BOARD_A ? '공고' : '항암화학요법';
+          fname = `${boardName}_${post.postNo}_${timestamp}.${ext}`;
         }
         
-        // 파일명 정리 (특수문자 제거)
+        // 파일명 정리 (특수문자 제거, 한국어 유지)
         fname = fname.replace(/[<>:"/\\|?*]/g, '_');
+        
+        // 파일명이 너무 길거나 깨진 경우 게시판 이름으로 대체
+        if (fname.length > 100 || /[^\x00-\x7F]/.test(fname) || fname.includes('ê') || fname.includes('ì')) {
+          const ext = path.extname(fname) || '.bin';
+          const boardName = post.boardId === BOARD_A ? '공고' : '항암화학요법';
+          const timestamp = Date.now();
+          fname = `${boardName}_${post.postNo}_${timestamp}${ext}`;
+        }
         
         const filePath = path.join(RAW_DIR, fname);
         fs.writeFileSync(filePath, res.data);
+        
+        // 공고 게시판에서는 PDF 파일만 유지
+        if (post.boardId === BOARD_A) {
+          const ext = path.extname(fname).toLowerCase();
+          if (ext !== '.pdf') {
+            console.log(`🗑️ Removing non-PDF file (공고 게시판): ${fname}`);
+            fs.unlinkSync(filePath);
+            continue; // 다음 첨부파일로
+          }
+        }
+        
+        // 항암화학요법 게시판에서는 HWP와 Excel 파일만 유지
+        if (post.boardId === BOARD_B) {
+          const ext = path.extname(fname).toLowerCase();
+          if (ext !== '.hwp' && ext !== '.hwpx' && ext !== '.xlsx' && ext !== '.xls') {
+            console.log(`🗑️ Removing non-HWP/Excel file (항암화학요법 게시판): ${fname}`);
+            fs.unlinkSync(filePath);
+            continue; // 다음 첨부파일로
+          }
+        }
         
         post.attachments = post.attachments || [];
         post.attachments.push(filePath);
@@ -1385,12 +1427,12 @@ async function processBoard(boardId, limit, force = false) {
 async function sync(force = false) {
   console.log(`Starting sync process (force: ${force})...`);
   
-  const resultA = await processBoard(BOARD_A, 3, force);
+  const resultA = await processBoard(BOARD_A, 1, force);
   console.log(`Board A result: ${resultA.added} chunks added, new detected: ${resultA.newDetected}`);
   
   // If board A had a new post, board B must be refreshed regardless of change.
   const forceB = force || resultA.newDetected;
-  const resultB = await processBoard(BOARD_B, 3, forceB);
+  const resultB = await processBoard(BOARD_B, 1, forceB);
   console.log(`Board B result: ${resultB.added} chunks added, new detected: ${resultB.newDetected}`);
   
   const total = resultA.added + resultB.added;
@@ -1512,6 +1554,29 @@ const argv = minimist(process.argv.slice(2));
 (async () => {
   if (argv.sync) await sync(argv.force === true);
   if (argv.query) await query(argv.query);
+  if (argv.clean) {
+    console.log('Cleaning existing files...');
+    // 기존 파일들 삭제
+    if (fs.existsSync(RAW_DIR)) {
+      const files = fs.readdirSync(RAW_DIR);
+      files.forEach(file => {
+        const filePath = path.join(RAW_DIR, file);
+        fs.unlinkSync(filePath);
+        console.log(`Deleted: ${file}`);
+      });
+    }
+    if (fs.existsSync(TEXT_DIR)) {
+      const files = fs.readdirSync(TEXT_DIR);
+      files.forEach(file => {
+        const filePath = path.join(TEXT_DIR, file);
+        fs.unlinkSync(filePath);
+        console.log(`Deleted: ${file}`);
+      });
+    }
+    // 레지스트리도 초기화
+    saveRegistry({});
+    console.log('Cleanup completed. Run --sync to download new files.');
+  }
 })();
 
 export { sync, query, searchWithSources, VECTOR_DIR };
