@@ -4,11 +4,11 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import path from 'path';
 import dotenv from 'dotenv';
-import multer from 'multer';
+
 import fs from 'fs';
+import XLSX from 'xlsx';
 import enhancedDataModule, { VECTOR_DIR as VECTOR_STORE_DIR } from './utils/enhanced_data_module.js';
-import configModule from '../config.js';
-const config = configModule.default || configModule;
+import config from '../config.js';
 
 // ESM-compatible __dirname
 import { fileURLToPath } from 'url';
@@ -489,45 +489,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve the cancer treatment guidelines PDF file
-app.get('/cancer_treatment_guidelines.pdf', (req, res) => {
-  const pdfPath = path.join(__dirname, 'data', 'cancer_treatment_guidelines.pdf');
-  res.sendFile(pdfPath);
-});
 
-// multer 설정
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
 
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB 제한
-  },
-  fileFilter: function (req, file, cb) {
-    if (file.mimetype !== 'application/pdf') {
-      return cb(new Error('PDF 파일만 업로드 가능합니다'), false);
-    }
-    cb(null, true);
-  }
-});
 
-// PDF 업로드 및 처리 라우트
-app.post('/api/upload/pdf', upload.single('pdfFile'), async (req, res) => {
-  return res.status(501).json({ error: 'PDF 수동 업로드는 지원되지 않습니다.' });
-});
+
 
 // search/documents 엔드포인트 수정 - 페이지 정보 반환
 app.post('/api/search/documents', async (req, res) => {
@@ -616,12 +582,14 @@ app.post('/api/chat', async (req, res) => {
     let contextDocs = [];
     let sourcePages = [];
     let results = [];  // 상위 스코프로 이동하여 메타데이터 접근에 사용
+    let reimbursement = '정보 없음';  // 기본값 설정
+    let evidencePages = [];  // 기본값 설정
     
     
     if (useRag) {
       try {
         // 관련 문서 검색
-        results = await query(message);
+        results = await enhancedDataModule.query(message);
         
         // 컨텍스트 구성 및 페이지 번호 추출
         contextDocs = results.map(doc => doc.pageContent);
@@ -659,7 +627,7 @@ app.post('/api/chat', async (req, res) => {
     let modelName;
     
     if (config.ai.provider === 'openai' || config.ai.openaiAvailable) {
-      const { ChatOpenAI } = require('@langchain/openai');
+      const { ChatOpenAI } = await import('@langchain/openai');
       try {
         // 기본 모델 설정
         modelName = config.ai.openaiModel || 'gpt-3.5-turbo';
@@ -682,7 +650,7 @@ app.post('/api/chat', async (req, res) => {
       }
     } else {
       // Default to OpenAI if provider is missing or not supported
-      const { ChatOpenAI } = require('@langchain/openai');
+      const { ChatOpenAI } = await import('@langchain/openai');
       modelName = 'gpt-3.5-turbo';
       console.log(`기본 OpenAI 모델 사용: ${modelName}`);
       ai = new ChatOpenAI({
@@ -771,9 +739,14 @@ app.post('/api/chat', async (req, res) => {
       const aiResponse = await ai.invoke(messages);
       response = aiResponse.content;
       console.log(`[채팅] 응답 성공, 길이: ${response.length} 자`);
-      response += `
+      
+      // reimbursement 정보가 있는 경우에만 추가
+      if (typeof reimbursement !== 'undefined' && evidencePages && evidencePages.length > 0) {
+        response += `
+        
 판정 결과: **${reimbursement}**  
 (근거 페이지: ${evidencePages.join(', ')})`;
+      }
     } catch (error) {
       console.error(`[채팅] 응답 오류 (${modelName}): ${error.message}`);
       
@@ -1357,9 +1330,9 @@ app.get('/api/downloaded-files', (req, res) => {
       
       // 게시판 정보 추출
       let boardName = '알 수 없음';
-      if (f.startsWith('공고_')) {
+      if (f.startsWith('HIRAA030023010000_')) {
         boardName = '공고';
-      } else if (f.startsWith('항암화학요법_')) {
+      } else if (f.startsWith('HIRAA030023030000_') || f.startsWith('undefined_')) {
         boardName = '항암화학요법';
       }
       
@@ -1402,6 +1375,119 @@ app.get('/api/file-exists/:filename', (req, res) => {
   }
 });
 
+// API: Get Excel data
+app.get('/api/excel-data', (req, res) => {
+  const { file } = req.query;
+  if (!file) {
+    return res.status(400).json({ error: '파일명이 필요합니다.' });
+  }
+
+  const rawDir = path.join(__dirname, 'data', 'raw');
+  const filePath = path.join(rawDir, decodeURIComponent(file));
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+  }
+
+  try {
+    const workbook = XLSX.readFile(filePath);
+    const sheets = workbook.SheetNames.map(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      return {
+        name: sheetName,
+        data: data
+      };
+    });
+
+    res.json({ sheets });
+  } catch (error) {
+    console.error('Excel 파일 파싱 오류:', error);
+    res.status(500).json({ error: 'Excel 파일을 파싱할 수 없습니다.' });
+  }
+});
+
+// API: 벡터DB 상태 확인
+app.get('/api/vector-status', (req, res) => {
+  try {
+    const metadata = enhancedDataModule.getMetadata();
+    const fileCount = Object.keys(metadata.files || {}).length;
+    const boardCount = Object.keys(metadata.boards || {}).length;
+    
+    res.json({
+      status: 'success',
+      vectorStore: {
+        fileCount,
+        boardCount,
+        lastSync: metadata.lastSync,
+        boards: metadata.boards
+      }
+    });
+  } catch (error) {
+    console.error('벡터DB 상태 확인 오류:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: '벡터DB 상태를 확인할 수 없습니다.' 
+    });
+  }
+});
+
+// API: Get document content for search
+app.get('/api/document-content', (req, res) => {
+  const { file } = req.query;
+  if (!file) {
+    return res.status(400).json({ error: '파일명이 필요합니다.' });
+  }
+
+  const rawDir = path.join(__dirname, 'data', 'raw');
+  const filePath = path.join(rawDir, decodeURIComponent(file));
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+  }
+
+  try {
+    const fileExtension = path.extname(file).toLowerCase();
+    let content = '';
+
+    if (['.xlsx', '.xls'].includes(fileExtension)) {
+      // Excel 파일 처리
+      const workbook = XLSX.readFile(filePath);
+      const sheets = workbook.SheetNames.map(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        return `[시트: ${sheetName}]\n${data.map(row => row.join(' | ')).join('\n')}`;
+      });
+      content = sheets.join('\n\n');
+    } else if (['.txt', '.json', '.csv', '.md', '.log', '.xml', '.html'].includes(fileExtension)) {
+      // 텍스트 파일 처리
+      content = fs.readFileSync(filePath, 'utf-8');
+    } else if (fileExtension === '.pdf') {
+      // PDF 파일은 이미 처리된 텍스트가 있다면 사용
+      const textDir = path.join(__dirname, 'data', 'text');
+      const textFileName = file.replace(/\.[^/.]+$/, '.txt');
+      const textFilePath = path.join(textDir, textFileName);
+      
+      if (fs.existsSync(textFilePath)) {
+        content = fs.readFileSync(textFilePath, 'utf-8');
+      } else {
+        content = '[PDF 파일 - 텍스트 추출 불가]';
+      }
+    } else {
+      content = '[지원하지 않는 파일 형식]';
+    }
+
+    res.json({ 
+      content,
+      filename: file,
+      fileSize: fs.statSync(filePath).size
+    });
+  } catch (error) {
+    console.error('문서 내용 추출 오류:', error);
+    res.status(500).json({ error: '문서 내용을 추출할 수 없습니다.' });
+  }
+});
+
 // Helper function to format file size
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 Bytes';
@@ -1412,11 +1498,28 @@ function formatFileSize(bytes) {
 }
 
 
+// 서버 시작 시 벡터DB 초기화 및 데이터 동기화
 (async () => {
   try {
-    await enhancedDataModule.sync();                  // 새 글 있을 때만 임베딩
+    console.log('🔄 벡터DB 초기화 중...');
+    
+    // 1. 벡터DB 초기화
+    await enhancedDataModule.initializeVectorStore();
+    console.log('✅ 벡터DB 초기화 완료');
+    
+    // 2. 데이터 동기화 (새 글 있을 때만 임베딩)
+    console.log('🔄 데이터 동기화 중...');
+    await enhancedDataModule.sync();
+    console.log('✅ 데이터 동기화 완료');
+    
+    // 3. 벡터DB 상태 확인
+    const metadata = enhancedDataModule.getMetadata();
+    const fileCount = Object.keys(metadata.files || {}).length;
+    console.log(`📊 벡터DB 상태: ${fileCount}개 파일, ${Object.keys(metadata.boards || {}).length}개 게시판`);
+    
   } catch (e) {
-    console.warn('[SYNC] 초기 동기화 실패:', e.message);
+    console.error('❌ 벡터DB 초기화 실패:', e.message);
+    console.error('상세 오류:', e);
   }
 })();
 

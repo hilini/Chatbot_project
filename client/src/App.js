@@ -24,37 +24,33 @@ function App() {
     setIsWaitingForResponse(true);
 
     try {
-      // 새로운 소스 추적 API 사용
-      const response = await axios.post('/api/search', {
-        query: message,
-        limit: 5
+      // 세션 ID 가져오기 또는 생성
+      let sessionId = localStorage.getItem('currentSessionId');
+      if (!sessionId) {
+        const sessionResponse = await axios.post('/api/chat/sessions');
+        sessionId = sessionResponse.data.sessionId;
+        localStorage.setItem('currentSessionId', sessionId);
+      }
+
+      // 실제 챗봇 API 호출
+      const response = await axios.post('/api/chat', {
+        message: message,
+        sessionId: sessionId,
+        useRag: true
       });
 
-      if (response.data.success) {
-        // 답변 생성 (실제로는 AI 모델을 사용해야 하지만, 지금은 검색 결과를 답변으로 사용)
-        const results = response.data.results;
-        const sources = response.data.sources;
-        
-        let answer = `검색 결과: "${message}"\n\n`;
-        if (results.length > 0) {
-          answer += results.map((result, index) => 
-            `${index + 1}. ${result.content.slice(0, 200)}...`
-          ).join('\n\n');
-        } else {
-          answer = "죄송합니다. 관련 정보를 찾을 수 없습니다.";
-        }
-
+      if (response.data && response.data.content) {
         const assistantMessage = { 
           role: 'assistant', 
-          content: answer,
-          sources: sources // 소스 정보 추가
+          content: response.data.content,
+          metadata: response.data.metadata
         };
         
         setMessages(prev => [...prev, assistantMessage]);
       } else {
         const errorMessage = { 
           role: 'assistant', 
-          content: "죄송합니다. 검색 중 오류가 발생했습니다." 
+          content: "죄송합니다. 응답을 생성할 수 없습니다." 
         };
         setMessages(prev => [...prev, errorMessage]);
       }

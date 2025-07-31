@@ -1,11 +1,12 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
 import XLSX from 'xlsx';
-import { fileURLToPath } from 'url';
 
+// ES 모듈에서 __dirname 사용을 위한 설정
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -542,6 +543,7 @@ class EnhancedHiraCrawler {
                     // 본문 텍스트는 추출하지 않고 기본 정보만 설정
                     postDetail = {
                         ...post,
+                        boardId: boardId, // boardId 명시적 설정
                         bodyText: '',
                         textFile: '',
                         attachments: []

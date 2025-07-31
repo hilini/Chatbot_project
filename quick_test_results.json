@@ -1,0 +1,14 @@
+{
+  "environment": {
+    "nodeVersion": "v24.4.0",
+    "openaiApiKey": true,
+    "platform": "linux"
+  },
+  "modules": {
+    "enhancedDataModule": true
+  },
+  "issues": [
+    "메타데이터 파일 없음",
+    "벡터 스토어 없음"
+  ]
+}

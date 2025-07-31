@@ -1,0 +1,198 @@
+[33mWARNING[0m:  [25-07-2025 16:26:23] chroma_server_nofile is set to 65535, but this is less than current soft limit of 1048576. chroma_server_nofile will not be set.
+[32mINFO[0m:     [25-07-2025 16:26:23] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+[36mDEBUG[0m:    [25-07-2025 16:26:23] Starting component System
+[36mDEBUG[0m:    [25-07-2025 16:26:23] Starting component OpenTelemetryClient
+[36mDEBUG[0m:    [25-07-2025 16:26:23] Starting component SqliteDB
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component SimpleQuotaEnforcer
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component Posthog
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component SimpleRateLimitEnforcer
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component LocalSegmentManager
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component LocalExecutor
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component SegmentAPI
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Starting component SimpleAsyncRateLimitEnforcer
+[31mERROR[0m:    [25-07-2025 16:26:24] Failed to send telemetry event ServerStartEvent: capture() takes 1 positional argument but 3 were given
+[32mINFO[0m:     [25-07-2025 16:26:24] Started server process [[36m3488702[0m]
+[32mINFO[0m:     [25-07-2025 16:26:24] Waiting for application startup.
+[32mINFO[0m:     [25-07-2025 16:26:24] Application startup complete.
+[31mERROR[0m:    [25-07-2025 16:26:24] [Errno 98] error while attempting to bind on address ('::1', 8000, 0, 0): address already in use
+[32mINFO[0m:     [25-07-2025 16:26:24] Waiting for application shutdown.
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component System
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component SegmentAPI
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component LocalExecutor
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component LocalSegmentManager
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component SimpleAsyncRateLimitEnforcer
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component SimpleRateLimitEnforcer
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component Posthog
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component SimpleQuotaEnforcer
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component SqliteDB
+[36mDEBUG[0m:    [25-07-2025 16:26:24] Stopping component OpenTelemetryClient
+[32mINFO[0m:     [25-07-2025 16:26:24] Application shutdown complete.
+WARNING:  [25-07-2025 17:30:34] chroma_server_nofile is set to 65535, but this is less than current soft limit of 1048576. chroma_server_nofile will not be set.
+INFO:     [25-07-2025 17:30:34] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+DEBUG:    [25-07-2025 17:30:34] Starting component System
+DEBUG:    [25-07-2025 17:30:34] Starting component OpenTelemetryClient
+DEBUG:    [25-07-2025 17:30:34] Starting component SqliteDB
+DEBUG:    [25-07-2025 17:30:34] Starting component SimpleQuotaEnforcer
+DEBUG:    [25-07-2025 17:30:34] Starting component Posthog
+DEBUG:    [25-07-2025 17:30:34] Starting component SimpleRateLimitEnforcer
+DEBUG:    [25-07-2025 17:30:34] Starting component LocalSegmentManager
+DEBUG:    [25-07-2025 17:30:34] Starting component LocalExecutor
+DEBUG:    [25-07-2025 17:30:34] Starting component SegmentAPI
+DEBUG:    [25-07-2025 17:30:34] Starting component SimpleAsyncRateLimitEnforcer
+ERROR:    [25-07-2025 17:30:35] Failed to send telemetry event ServerStartEvent: capture() takes 1 positional argument but 3 were given
+INFO:     [25-07-2025 17:30:35] Started server process [3633243]
+INFO:     [25-07-2025 17:30:35] Waiting for application startup.
+INFO:     [25-07-2025 17:30:35] Application startup complete.
+ERROR:    [25-07-2025 17:30:35] [Errno 98] error while attempting to bind on address ('::1', 8000, 0, 0): address already in use
+INFO:     [25-07-2025 17:30:35] Waiting for application shutdown.
+DEBUG:    [25-07-2025 17:30:35] Stopping component System
+DEBUG:    [25-07-2025 17:30:35] Stopping component SegmentAPI
+DEBUG:    [25-07-2025 17:30:35] Stopping component LocalExecutor
+DEBUG:    [25-07-2025 17:30:35] Stopping component LocalSegmentManager
+DEBUG:    [25-07-2025 17:30:35] Stopping component SimpleAsyncRateLimitEnforcer
+DEBUG:    [25-07-2025 17:30:35] Stopping component SimpleRateLimitEnforcer
+DEBUG:    [25-07-2025 17:30:35] Stopping component Posthog
+DEBUG:    [25-07-2025 17:30:35] Stopping component SimpleQuotaEnforcer
+DEBUG:    [25-07-2025 17:30:35] Stopping component SqliteDB
+DEBUG:    [25-07-2025 17:30:35] Stopping component OpenTelemetryClient
+INFO:     [25-07-2025 17:30:35] Application shutdown complete.
+WARNING:  [25-07-2025 17:31:23] chroma_server_nofile is set to 65535, but this is less than current soft limit of 1048576. chroma_server_nofile will not be set.
+INFO:     [25-07-2025 17:31:23] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+DEBUG:    [25-07-2025 17:31:23] Starting component System
+DEBUG:    [25-07-2025 17:31:23] Starting component OpenTelemetryClient
+DEBUG:    [25-07-2025 17:31:23] Starting component SqliteDB
+DEBUG:    [25-07-2025 17:31:23] Starting component SimpleQuotaEnforcer
+DEBUG:    [25-07-2025 17:31:23] Starting component Posthog
+DEBUG:    [25-07-2025 17:31:23] Starting component SimpleRateLimitEnforcer
+DEBUG:    [25-07-2025 17:31:23] Starting component LocalSegmentManager
+DEBUG:    [25-07-2025 17:31:23] Starting component LocalExecutor
+DEBUG:    [25-07-2025 17:31:23] Starting component SegmentAPI
+DEBUG:    [25-07-2025 17:31:23] Starting component SimpleAsyncRateLimitEnforcer
+ERROR:    [25-07-2025 17:31:23] Failed to send telemetry event ServerStartEvent: capture() takes 1 positional argument but 3 were given
+INFO:     [25-07-2025 17:31:23] Started server process [3636460]
+INFO:     [25-07-2025 17:31:23] Waiting for application startup.
+INFO:     [25-07-2025 17:31:23] Application startup complete.
+ERROR:    [25-07-2025 17:31:23] [Errno 98] error while attempting to bind on address ('::1', 8000, 0, 0): address already in use
+INFO:     [25-07-2025 17:31:23] Waiting for application shutdown.
+DEBUG:    [25-07-2025 17:31:23] Stopping component System
+DEBUG:    [25-07-2025 17:31:23] Stopping component SegmentAPI
+DEBUG:    [25-07-2025 17:31:23] Stopping component LocalExecutor
+DEBUG:    [25-07-2025 17:31:23] Stopping component LocalSegmentManager
+DEBUG:    [25-07-2025 17:31:23] Stopping component SimpleAsyncRateLimitEnforcer
+DEBUG:    [25-07-2025 17:31:23] Stopping component SimpleRateLimitEnforcer
+DEBUG:    [25-07-2025 17:31:23] Stopping component Posthog
+DEBUG:    [25-07-2025 17:31:23] Stopping component SimpleQuotaEnforcer
+DEBUG:    [25-07-2025 17:31:23] Stopping component SqliteDB
+DEBUG:    [25-07-2025 17:31:23] Stopping component OpenTelemetryClient
+INFO:     [25-07-2025 17:31:23] Application shutdown complete.
+[33mWARNING[0m:  [25-07-2025 17:33:25] chroma_server_nofile is set to 65535, but this is less than current soft limit of 1048576. chroma_server_nofile will not be set.
+[32mINFO[0m:     [25-07-2025 17:33:25] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component System
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component OpenTelemetryClient
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component SqliteDB
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component SimpleQuotaEnforcer
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component Posthog
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component SimpleRateLimitEnforcer
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component LocalSegmentManager
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component LocalExecutor
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component SegmentAPI
+[36mDEBUG[0m:    [25-07-2025 17:33:25] Starting component SimpleAsyncRateLimitEnforcer
+[31mERROR[0m:    [25-07-2025 17:33:25] Failed to send telemetry event ServerStartEvent: capture() takes 1 positional argument but 3 were given
+[32mINFO[0m:     [25-07-2025 17:33:25] Started server process [[36m3640781[0m]
+[32mINFO[0m:     [25-07-2025 17:33:25] Waiting for application startup.
+[32mINFO[0m:     [25-07-2025 17:33:25] Application startup complete.
+[32mINFO[0m:     [25-07-2025 17:33:25] Uvicorn running on [1mhttp://localhost:8765[0m (Press CTRL+C to quit)
+[32mINFO[0m:     [25-07-2025 17:33:32] 127.0.0.1:53954 - "GET / HTTP/1.1" 404
+[32mINFO[0m:     [25-07-2025 17:33:32] 127.0.0.1:53954 - "GET /favicon.ico HTTP/1.1" 404
+[33mWARNING[0m:  [28-07-2025 16:41:43] chroma_server_nofile is set to 65535, but this is less than current soft limit of 1048576. chroma_server_nofile will not be set.
+[32mINFO[0m:     [28-07-2025 16:41:43] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+[36mDEBUG[0m:    [28-07-2025 16:41:43] Starting component System
+[36mDEBUG[0m:    [28-07-2025 16:41:43] Starting component OpenTelemetryClient
+[36mDEBUG[0m:    [28-07-2025 16:41:43] Starting component SqliteDB
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component SimpleQuotaEnforcer
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component Posthog
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component SimpleRateLimitEnforcer
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component LocalSegmentManager
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component LocalExecutor
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component SegmentAPI
+[36mDEBUG[0m:    [28-07-2025 16:41:44] Starting component SimpleAsyncRateLimitEnforcer
+[31mERROR[0m:    [28-07-2025 16:41:45] Failed to send telemetry event ServerStartEvent: capture() takes 1 positional argument but 3 were given
+[32mINFO[0m:     [28-07-2025 16:41:45] Started server process [[36m628266[0m]
+[32mINFO[0m:     [28-07-2025 16:41:45] Waiting for application startup.
+[32mINFO[0m:     [28-07-2025 16:41:45] Application startup complete.
+[32mINFO[0m:     [28-07-2025 16:41:45] Uvicorn running on [1mhttp://0.0.0.0:8765[0m (Press CTRL+C to quit)
+[32mINFO[0m:     [28-07-2025 16:41:50] 127.0.0.1:55788 - "GET /api/v1/heartbeat HTTP/1.1" 200
+[32mINFO[0m:     [28-07-2025 16:41:55] 127.0.0.1:55796 - "GET /api/v1/heartbeat HTTP/1.1" 200
+[32mINFO[0m:     [28-07-2025 16:43:09] 127.0.0.1:55898 - "GET /api/v1/heartbeat HTTP/1.1" 200
+[32mINFO[0m:     [28-07-2025 16:43:11] 127.0.0.1:55898 - "GET /api/v1/heartbeat HTTP/1.1" 200
+[31mERROR[0m:    [28-07-2025 16:43:11] '_type'
+Traceback (most recent call last):
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 151, in call_next
+    message = await recv_stream.receive()
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/anyio/streams/memory.py", line 126, in receive
+    raise EndOfStream from None
+anyio.EndOfStream
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/server/fastapi/__init__.py", line 120, in catch_exceptions_middleware
+    return await call_next(request)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 159, in call_next
+    raise app_exc
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 187, in __call__
+    recv_stream.close()
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/contextlib.py", line 137, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/_utils.py", line 83, in collapse_excgroups
+    raise exc
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 184, in __call__
+    response = await self.dispatch_func(request, call_next)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/server/fastapi/__init__.py", line 144, in check_http_version_middleware
+    return await call_next(request)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 159, in call_next
+    raise app_exc
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/fastapi/routing.py", line 302, in app
+    raw_response = await run_endpoint_function(
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/fastapi/routing.py", line 213, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/telemetry/opentelemetry/__init__.py", line 134, in async_wrapper
+    return await f(*args, **kwargs)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/server/fastapi/__init__.py", line 798, in create_collection
+    await to_thread.run_sync(
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/anyio/_backends/_asyncio.py", line 2470, in run_sync_in_worker_thread
+    return await future
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/anyio/_backends/_asyncio.py", line 967, in run
+    result = context.run(func, *args)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/server/fastapi/__init__.py", line 772, in process_create_collection
+    else CollectionConfigurationInternal.from_json(create.configuration)
+  File "/opt/anaconda-3-2020.02/envs/chatbot_project/lib/python3.9/site-packages/chromadb/api/configuration.py", line 209, in from_json
+    f"Trying to instantiate configuration of type {cls.__name__} from JSON with type {json_map['_type']}"
+KeyError: '_type'
+[32mINFO[0m:     [28-07-2025 16:43:11] 127.0.0.1:55906 - "POST /api/v2/tenants/default_tenant/databases/default_database/collections HTTP/1.1" 500

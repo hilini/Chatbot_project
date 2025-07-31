@@ -4,8 +4,8 @@ class MedicalChunker {
   constructor() {
     // 의료 특화 청킹 설정
     this.medicalSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 200,
+      chunkSize: 1500, // 청크 크기 증가
+      chunkOverlap: 300, // 오버랩 증가
       separators: [
         '\n\n## ', // 섹션 구분
         '\n\n### ', // 하위 섹션 구분
@@ -58,6 +58,7 @@ class MedicalChunker {
   normalizeMedicalTerms(text) {
     // 약물명 정규화
     const drugMappings = {
+      // 면역항암제
       '펨브롤리주맙': 'pembrolizumab',
       '키트루다': 'Keytruda',
       '니볼루맙': 'nivolumab',
@@ -65,7 +66,29 @@ class MedicalChunker {
       '아테졸리주맙': 'atezolizumab',
       '테센트릭': 'Tecentriq',
       '듀발루맙': 'durvalumab',
-      '이미피니': 'Imfinzi'
+      '이미피니': 'Imfinzi',
+      
+      // 항진균제
+      '암포테리신B': 'amphotericin B',
+      '암비솜': 'AmBisome',
+      '보리코나졸': 'voriconazole',
+      '포사코나졸': 'posaconazole',
+      
+      // 항바이러스제
+      '간시클로비르': 'ganciclovir',
+      'GCV': 'ganciclovir',
+      '마리바비르': 'maribavir',
+      
+      // 기타 의료 용어
+      '급여기준': '급여기준',
+      '허가기준': '허가기준',
+      '고시기준': '고시기준',
+      '적응증': '적응증',
+      '사례별심사': '사례별심사',
+      '삭감': '삭감',
+      '비급여': '비급여',
+      '급여': '급여',
+      '임의비급여': '임의비급여'
     };
 
     let normalized = text;

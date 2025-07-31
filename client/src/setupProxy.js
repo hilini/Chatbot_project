@@ -2,7 +2,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
   app.use(
-    ['/api', '/files', '/cancer_treatment_guidelines.pdf', '/favicon.ico', '/logo192.png'],
+    ['/api', '/files', '/favicon.ico', '/logo192.png'],
     createProxyMiddleware({
       target: 'http://localhost:3001',
       changeOrigin: true,

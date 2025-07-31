@@ -69,10 +69,11 @@ const FileList = ({ onFileSelect }) => {
               <td style={{padding:'0.5rem 0'}}>
                 {(() => {
                   // 파일명에서 의미있는 부분 추출
-                  const match = file.filename.match(/^(공고|항암화학요법)_(\d+)_(\d+)\.(.+)$/);
+                  const match = file.filename.match(/^(HIRAA030023010000|HIRAA030023030000|undefined)_(\d+)_(.+)$/);
                   if (match) {
-                    const [, board, postNo, timestamp, ext] = match;
+                    const [, board, postNo, rest] = match;
                     // 게시글 번호와 확장자만 표시
+                    const ext = rest.split('.').pop();
                     return `게시글 #${postNo}.${ext}`;
                   }
                   return file.filename;

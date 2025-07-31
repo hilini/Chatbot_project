@@ -46,6 +46,22 @@ else
   echo "Client dependencies already installed. Skipping npm install."
 fi
 
+# Check Chroma vector database (local file-based)
+echo "Checking Chroma vector database..."
+
+# Using local file-based Chroma (no server needed)
+echo "✅ Using local file-based Chroma (no server required)"
+
+# Check if vector store exists, if not rebuild it
+echo "Checking vector store..."
+
+if [ ! -f "server/data/vector/metadata.json" ]; then
+  echo "Vector store not found. Rebuilding..."
+  npm run rebuild-chroma
+else
+  echo "✅ Vector store exists. Skipping rebuild."
+fi
+
 # Start the application
 echo "Starting the application..."
 echo "The server will be available at: http://localhost:3001/api/health"

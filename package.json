@@ -1,6 +1,7 @@
 {
   "name": "cancer-treatment-chatbot",
   "version": "1.0.0",
+  "type": "module",
   "description": "항암요법 Treatment Planning 챗봇 - 한국 요양급여 기준 기반",
   "main": "server/server.js",
   "scripts": {
@@ -8,7 +9,18 @@
     "server": "nodemon server/server.js",
     "client": "cd client && npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "install-all": "npm install && cd client && npm install"
+    "install-all": "npm install && cd client && npm install",
+    "rebuild-vector-store": "node rebuild_vector_store.js",
+    "test-enhanced-search": "node test_enhanced_search.js",
+    "diagnostic": "node diagnostic_test.js",
+    "quick-test": "node quick_test.js",
+    "start-chroma": "python3 chroma_config.py",
+    "rebuild-chroma": "node rebuild_chroma_store.js",
+    "chroma-status": "python3 manage_chroma.py status",
+    "chroma-list": "python3 manage_chroma.py list",
+    "chroma-delete": "python3 manage_chroma.py delete",
+    "chroma-backup": "python3 manage_chroma.py backup",
+    "chroma-search": "python3 manage_chroma.py search"
   },
   "keywords": [
     "cancer",
@@ -20,7 +32,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@langchain/community": "^0.3.37",
+    "@chroma-core/default-embed": "^0.1.8",
+    "@langchain/community": "^0.3.49",
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.5.0",
     "@modelcontextprotocol/sdk": "^1.7.0",
@@ -39,7 +52,9 @@
     "multer": "^1.4.5-lts.2",
     "node-cron": "^4.2.1",
     "openai": "^4.20.0",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
+    "pdf2pic": "^3.2.0",
     "puppeteer": "^19.11.1",
     "textract": "^2.5.0",
     "zod": "^3.22.4"

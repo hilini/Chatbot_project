@@ -5,7 +5,7 @@
  * Edit these settings to customize the behavior of your application.
  */
 
-module.exports = {
+const config = {
   // Server Settings
   server: {
     port: 3001,
@@ -52,4 +52,6 @@ module.exports = {
       '췌장암', '전립선암', '자궁경부암', '혈액암', '기타'
     ]
   }
-}; 
+};
+
+export default config; 

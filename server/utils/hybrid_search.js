@@ -1,7 +1,12 @@
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { FaissStore } from '@langchain/community/vectorstores/faiss';
+import { Chroma } from '@langchain/community/vectorstores/chroma';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES 모듈에서 __dirname 사용을 위한 설정
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class HybridSearch {
   constructor(embeddings, vectorStore) {
@@ -159,15 +164,56 @@ class HybridSearch {
         let score = 0;
         const keywords = queryLower.split(/\s+/);
         
+        // 의료 용어 매핑 적용
+        const medicalMappings = {
+          '펨브롤리주맙': ['펨브롤리주맙', '키트루다', 'pembrolizumab', 'Pembrolizumab'],
+          '키트루다': ['펨브롤리주맙', '키트루다', 'pembrolizumab', 'Pembrolizumab'],
+          '암비솜': ['암비솜', 'ambisome', '암포테리신b', 'AmBisome'],
+          '보리코나졸': ['보리코나졸', 'voriconazole', 'Voriconazole'],
+          '포사코나졸': ['포사코나졸', 'posaconazole', 'Posaconazole'],
+          '간시클로비르': ['간시클로비르', 'ganciclovir', 'GCV', 'Ganciclovir'],
+          '마리바비르': ['마리바비르', 'maribavir', 'Maribavir'],
+          '급여기준': ['급여기준', '급여', '보험급여', '급여인정'],
+          '허가기준': ['허가기준', '허가', '적응증', '허가인정'],
+          '고시기준': ['고시기준', '고시', '고시인정'],
+          '사례별심사': ['사례별심사', '사례별', '심사', '개별심사'],
+          '삭감': ['삭감', '삭제', '제외', '비급여', '임의비급여']
+        };
+        
         keywords.forEach(keyword => {
-          const count = (textContent.match(new RegExp(keyword, 'g')) || []).length;
-          score += count * 0.1; // 키워드 등장 횟수에 따른 점수
+          let matchedTerms = [keyword];
+          
+          // 매핑된 용어들도 검색
+          if (medicalMappings[keyword]) {
+            matchedTerms = medicalMappings[keyword];
+          }
+          
+          matchedTerms.forEach(term => {
+            const count = (textContent.match(new RegExp(term, 'g')) || []).length;
+            score += count * 0.2; // 키워드 등장 횟수에 따른 점수 증가
+          });
         });
 
         // 정확한 매칭에 더 높은 점수
         if (textContent.includes(queryLower)) {
-          score += 1.0;
+          score += 2.0; // 정확 매칭 점수 증가
         }
+        
+        // 의료 관련 키워드가 포함된 경우 추가 점수
+        const medicalKeywords = ['급여', '허가', '고시', '적응증', '심사', '삭감', '비급여'];
+        medicalKeywords.forEach(medKeyword => {
+          if (textContent.includes(medKeyword)) {
+            score += 0.5;
+          }
+        });
+
+        // 관련 없는 약물명이 포함된 경우 점수 감점
+        const unrelatedDrugs = ['Everolimus', 'Doxorubicin', 'Etoposide', 'Cisplatin', 'Cyclophosphamide'];
+        unrelatedDrugs.forEach(drug => {
+          if (textContent.includes(drug) && !queryAnalysis.entities.drugs.includes(drug)) {
+            score -= 1.0; // 관련 없는 약물명에 대한 감점
+          }
+        });
 
         if (score > 0) {
           results.push({
@@ -205,7 +251,7 @@ class HybridSearch {
       const key = `${result.sourceInfo.boardId}_${result.sourceInfo.postNo}_${result.sourceInfo.chunkIndex || 0}`;
       combined.set(key, {
         ...result,
-        finalScore: result.score * 0.7 // 벡터 검색 가중치
+        finalScore: result.score * 0.5 // 벡터 검색 가중치 감소
       });
     });
 
@@ -216,13 +262,13 @@ class HybridSearch {
       if (combined.has(key)) {
         // 기존 결과가 있으면 점수 업데이트
         const existing = combined.get(key);
-        existing.finalScore += result.score * 0.3; // 키워드 검색 가중치
+        existing.finalScore += result.score * 0.5; // 키워드 검색 가중치 증가
         existing.searchType = 'hybrid';
       } else {
         // 새로운 결과 추가
         combined.set(key, {
           ...result,
-          finalScore: result.score * 0.3
+          finalScore: result.score * 0.5
         });
       }
     });

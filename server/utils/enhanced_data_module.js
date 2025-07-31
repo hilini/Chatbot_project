@@ -1,14 +1,20 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { FaissStore } from '@langchain/community/vectorstores/faiss';
+// GPU 기반 임베딩 매니저 사용 (Python 스크립트를 통해)
+// ChromaDB는 Python 스크립트를 통해 직접 사용
+// ChromaClient 제거 - LangChain Chroma만 사용
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { Document } from 'langchain/document';
 import EnhancedHiraCrawler from './enhanced_crawler.js';
 import MedicalChunker from './medical_chunker.js';
 import HybridSearch from './hybrid_search.js';
+import EnhancedDocumentProcessor from './enhanced_document_processor.js';
+import XLSX from 'xlsx';
+// pdf-parse는 동적 import로 처리
 import dotenv from 'dotenv';
 
+// ES 모듈에서 __dirname 사용을 위한 설정
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,6 +27,9 @@ const RAW_DIR = path.join(__dirname, '../data/raw');
 const TEXT_DIR = path.join(__dirname, '../data/text');
 const METADATA_FILE = path.join(VECTOR_DIR, 'metadata.json');
 
+// Chroma 클라이언트 설정
+const CHROMA_PATH = path.join(__dirname, '../../chroma_db');
+
 // 디렉토리 생성
 [VECTOR_DIR, RAW_DIR, TEXT_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
@@ -30,25 +39,20 @@ const METADATA_FILE = path.join(VECTOR_DIR, 'metadata.json');
 
 class EnhancedDataModule {
   constructor() {
-    this.crawler = new EnhancedHiraCrawler();
-    this.medicalChunker = new MedicalChunker();
+    this.crawler = new EnhancedHiraCrawler(); // 게시판 크롤러 인스턴스
+    this.medicalChunker = new MedicalChunker(); // 의료 문서 청크 분할기
+    this.documentProcessor = new EnhancedDocumentProcessor(); // 개선된 문서 처리기
     
-    // OpenAI API 키가 있는 경우에만 embeddings 초기화
-    console.log('OpenAI API 키 확인:', process.env.OPENAI_API_KEY ? '있음' : '없음');
-    if (process.env.OPENAI_API_KEY) {
-      console.log('OpenAI embeddings 초기화 중...');
-      this.embeddings = new OpenAIEmbeddings({
-        openAIApiKey: process.env.OPENAI_API_KEY,
-      });
-      console.log('OpenAI embeddings 초기화 완료');
-    } else {
-      console.warn('OpenAI API 키가 없습니다. 벡터 검색 기능이 제한됩니다.');
-      this.embeddings = null;
-    }
+    // GPU 기반 임베딩 매니저 설정 (Python 스크립트를 통해 사용)
+    this.embeddingModel = process.env.EMBEDDING_MODEL || "minilm"; // minilm, pubmed, mpnet 등
+    this.device = process.env.DEVICE || "auto"; // cuda, cpu, auto
+    console.log(`GPU 기반 임베딩 모델 설정: ${this.embeddingModel} on ${this.device}`);
     
     this.vectorStore = null;
     this.hybridSearch = null;
     this.metadata = this.loadMetadata();
+    
+    // Chroma 클라이언트 제거 - LangChain Chroma만 사용
   }
 
   // 메타데이터 로드
@@ -100,85 +104,199 @@ class EnhancedDataModule {
   async createTextFile(boardId, post, bodyText = '') {
     const postNo = post.postNo || 'unknown';
     const title = post.title || '제목없음';
-    const fileName = `${boardId}_${postNo}_${title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.txt`;
+    
+    // 파일명 생성
+    const fileName = `${boardId}_${postNo}_${title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
     const filePath = path.join(TEXT_DIR, fileName);
     
-    let content = `제목: ${title}\n`;
-    content += `게시번호: ${postNo}\n`;
-    content += `게시일: ${new Date().toISOString()}\n`;
-    content += `게시판: ${this.metadata.boards[boardId]?.name || boardId}\n`;
-    content += `\n본문:\n${bodyText}\n`;
+    // 텍스트 내용 구성
+    const content = `제목: ${title}\n게시번호: ${postNo}\n게시일: ${new Date().toISOString()}\n게시판: ${this.metadata.boards[boardId]?.name || boardId}\n본문: ${bodyText}`;
     
+    // 파일 저장
     fs.writeFileSync(filePath, content, 'utf-8');
-    return { fileName, filePath, content };
+    
+    return {
+      fileName,
+      filePath,
+      content
+    };
   }
 
-  // 텍스트 청킹 (의료 특화)
-  async splitText(text, sourceInfo) {
-    // 의료 문서인 경우 특화 청킹 사용
-    if (sourceInfo.type === 'text' && text.length > 500) {
-      return await this.medicalChunker.chunkMedicalDocument(text, sourceInfo);
-    }
-    
-    // 일반 문서는 기존 방식 사용
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 200,
-    });
+  // 직접적인 PDF 텍스트 추출 (EnhancedDocumentProcessor로 대체됨)
+  async extractPdfText(filePath) {
+    console.log('extractPdfText는 더 이상 사용되지 않습니다. EnhancedDocumentProcessor를 사용하세요.');
+    return await this.extractTextFromFile(filePath);
+  }
 
-    const chunks = await splitter.splitText(text);
-    
-    return chunks.map((chunk, index) => ({
-      pageContent: chunk,
-      metadata: {
-        ...sourceInfo,
-        chunkIndex: index,
-        totalChunks: chunks.length,
-        chunkType: 'general'
+  // Excel 파일 텍스트 추출 (EnhancedDocumentProcessor로 대체됨)
+  async extractExcelText(filePath) {
+    console.log('extractExcelText는 더 이상 사용되지 않습니다. EnhancedDocumentProcessor를 사용하세요.');
+    return await this.extractTextFromFile(filePath);
+  }
+
+  // 텍스트 파일 읽기 (EnhancedDocumentProcessor로 대체됨)
+  async extractTextFile(filePath) { 
+    console.log('extractTextFile는 더 이상 사용되지 않습니다. EnhancedDocumentProcessor를 사용하세요.');
+    return await this.extractTextFromFile(filePath);
+  }
+
+  // 파일에서 텍스트 추출 (개선된 버전)
+  async extractTextFromFile(filePath) {
+    try {
+      console.log(`개선된 문서 처리기로 파일 처리: ${path.basename(filePath)}`);
+      
+      const result = await this.documentProcessor.processFile(filePath);
+      
+      if (result.success) {
+        console.log(`문서 처리 성공: ${result.metadata.method} (${result.metadata.pages}페이지)`);
+        return result.content;
+      } else {
+        console.warn(`문서 처리 실패: ${result.error}`);
+        return '';
       }
-    }));
+    } catch (error) {
+      console.error(`문서 처리 중 오류: ${error.message}`);
+      return '';
+    }
+  }
+
+  // 텍스트를 청크로 분할
+  async splitText(text, sourceInfo) {
+    if (!text || text.trim() === '') {
+      console.warn('빈 텍스트입니다.');
+      return [];
+    }
+
+    try {
+      console.log(`텍스트 청킹 시작: ${text.length}글자`);
+      
+      const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
+      });
+      
+      const chunks = await textSplitter.splitText(text);
+      
+      // Document 객체로 변환
+      const documents = chunks.map((chunk, index) => {
+        return new Document({
+          pageContent: chunk,
+          metadata: {
+            ...sourceInfo,
+            chunkIndex: index,
+            totalChunks: chunks.length,
+            textLength: text.length
+          }
+        });
+      });
+      
+      console.log(`텍스트 청킹 완료: ${documents.length}개 청크`);
+      return documents;
+      
+    } catch (error) {
+      console.error('텍스트 청킹 실패:', error);
+      return [];
+    }
+  }
+
+  // ChromaDB Python 스크립트 실행
+  async runChromaScript(command, data) {
+    try {
+      const scriptPath = path.join(__dirname, 'chroma_manager.py');
+      const { spawn } = await import('child_process');
+      
+      return new Promise((resolve, reject) => {
+        const pythonProcess = spawn('python', [
+          scriptPath,
+          command,
+          JSON.stringify(data)
+        ]);
+        
+        let output = '';
+        let errorOutput = '';
+        
+        pythonProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+        
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            try {
+              const result = JSON.parse(output);
+              resolve(result);
+            } catch (parseError) {
+              reject(new Error(`JSON 파싱 실패: ${output}`));
+            }
+          } else {
+            reject(new Error(`Python 스크립트 실행 실패 (${code}): ${errorOutput}`));
+          }
+        });
+      });
+    } catch (error) {
+      throw new Error(`ChromaDB 스크립트 실행 오류: ${error.message}`);
+    }
+  }
+
+  // ChromaDB 서버 연결 확인
+  async checkChromaServer() {
+    try {
+      console.log('ChromaDB 서버 연결 확인 중...');
+      
+      const chromaPath = path.join(VECTOR_DIR, 'chroma_db');
+      const result = await this.runChromaScript('info', {
+        db_path: chromaPath,
+        model_name: this.embeddingModel,
+        device: this.device
+      });
+      
+      if (result.success) {
+        console.log('ChromaDB 서버 연결 성공:', result);
+        return true;
+      } else {
+        console.error('ChromaDB 서버 연결 실패:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('ChromaDB 서버 연결 확인 실패:', error);
+      return false;
+    }
   }
 
   // 벡터 스토어 초기화
   async initializeVectorStore() {
-    if (!this.embeddings) {
-      console.warn('OpenAI API 키가 없어 벡터 스토어를 초기화할 수 없습니다.');
-      return;
-    }
-    
-    const storePath = path.join(VECTOR_DIR, 'hira');
-    
-    if (fs.existsSync(storePath)) {
-      try {
-        this.vectorStore = await FaissStore.load(storePath, this.embeddings);
-        console.log('기존 벡터 스토어 로드됨');
-      } catch (error) {
-        console.error('벡터 스토어 로드 실패:', error);
-        this.vectorStore = null;
+    try {
+      console.log('ChromaDB Python 클라이언트 초기화 중...');
+      
+      // ChromaDB 정보 확인
+      const chromaPath = path.join(VECTOR_DIR, 'chroma_db');
+      const result = await this.runChromaScript('info', {
+        db_path: chromaPath,
+        model_name: this.embeddingModel,
+        device: this.device
+      });
+      
+      if (result.success) {
+        console.log(`ChromaDB 초기화 완료: ${result.document_count}개 문서`);
+        console.log(`사용 모델: ${result.model_name}, 임베딩 차원: ${result.embedding_dimension}`);
+        this.chromaPath = chromaPath;
+      } else {
+        throw new Error(`ChromaDB 초기화 실패: ${result.error}`);
       }
+      
+    } catch (error) {
+      console.error('ChromaDB 초기화 실패:', error);
+      throw error;
     }
-    
-    if (!this.vectorStore) {
-      this.vectorStore = await FaissStore.fromTexts(
-        ['초기화'],
-        [{ boardId: 'init', postNo: '0', filename: 'init.txt' }],
-        this.embeddings
-      );
-      console.log('새 벡터 스토어 생성됨');
-    }
-    
-    // 하이브리드 검색 초기화
-    this.hybridSearch = new HybridSearch(this.embeddings, this.vectorStore);
   }
 
   // 벡터 스토어에 문서 추가
   async addToVectorStore(documents) {
-    if (!this.embeddings) {
-      console.warn('OpenAI API 키가 없어 벡터 스토어에 문서를 추가할 수 없습니다.');
-      return;
-    }
     
-    if (!this.vectorStore) {
+    if (!this.chromaPath) {
       await this.initializeVectorStore();
     }
 
@@ -187,38 +305,35 @@ class EnhancedDataModule {
       return;
     }
 
+    // 디버깅: 문서 내용 미리보기
+    console.log("=== 문서 디버깅 정보 ===");
+    console.log(`총 문서 수: ${documents.length}`);
+    console.log("문서 미리보기:", documents.map((d, i) => ({
+      index: i,
+      contentPreview: d.pageContent ? d.pageContent.slice(0, 100) + '...' : '빈 내용',
+      metadata: d.metadata
+    })));
+    console.log("=== 문서 디버깅 정보 끝 ===");
+
     try {
-      console.log(`벡터 스토어에 ${documents.length}개 문서 추가 중...`);
+      console.log(`ChromaDB에 ${documents.length}개 문서 추가 중...`);
       
-      // 기존 벡터 스토어가 "초기화" 더미 데이터만 있으면 새로 생성
-      if (this.vectorStore && documents.length > 0) {
-        const testResults = await this.vectorStore.similaritySearchWithScore('test', 1);
-        if (testResults.length > 0 && testResults[0][0].pageContent === '초기화') {
-          console.log('기존 더미 데이터 제거하고 새로 생성...');
-          this.vectorStore = null;
-        }
-      }
+      // ChromaDB에 문서 추가
+      const result = await this.runChromaScript('add_documents', {
+        db_path: this.chromaPath,
+        model_name: this.embeddingModel,
+        device: this.device,
+        documents: documents
+      });
       
-      // 벡터 스토어가 없으면 새로 생성
-      if (!this.vectorStore) {
-        console.log('새 벡터 스토어 생성...');
-        this.vectorStore = await FaissStore.fromDocuments(documents, this.embeddings);
+      if (result.success) {
+        console.log(result.message);
       } else {
-        // 기존 벡터 스토어에 문서 추가
-        for (const doc of documents) {
-          await this.vectorStore.addDocuments([doc]);
-        }
+        throw new Error(`ChromaDB 문서 추가 실패: ${result.error}`);
       }
-      
-      // 벡터 스토어 저장
-      await this.vectorStore.save(path.join(VECTOR_DIR, 'hira'));
-      console.log(`${documents.length}개 문서가 벡터 스토어에 추가됨`);
-      
-      // 하이브리드 검색 업데이트
-      this.hybridSearch = new HybridSearch(this.embeddings, this.vectorStore);
       
     } catch (error) {
-      console.error('벡터 스토어에 문서 추가 실패:', error);
+      console.error('ChromaDB에 문서 추가 실패:', error);
       throw error;
     }
   }
@@ -236,6 +351,9 @@ class EnhancedDataModule {
       for (const result of results) {
         const { downloadedFiles, bodyText, textFile, postNo, title } = result;
         
+        // postNoValue를 먼저 정의 (스코프 문제 해결)
+        const postNoValue = postNo || 'unknown';
+        
         // 텍스트 파일 생성 (공고 게시판만)
         let textContent = '';
         let textFileInfo = null;
@@ -244,37 +362,91 @@ class EnhancedDataModule {
           textContent = textFileInfo.content;
           
           // 텍스트 파일 메타데이터 추가
-          const postNoValue = postNo || 'unknown';
           this.addFileMetadata(boardId, postNoValue, textFileInfo.fileName, textFileInfo.filePath, textContent);
+        }
+        
+        // 공고 게시판의 경우 텍스트 내용을 벡터 DB에 추가
+        if (boardId === 'HIRAA030023010000' && textContent && textFileInfo) {
+          const sourceInfo = {
+            boardId,
+            postNo: postNoValue,
+            title: title || '제목없음',
+            filename: textFileInfo.fileName,
+            filePath: textFileInfo.filePath,
+            type: 'text'
+          };
+          
+          const chunks = await this.splitText(textContent, sourceInfo);
+          newDocuments.push(...chunks);
         }
         
         // 다운로드된 파일들 처리
         for (const downloadedFile of downloadedFiles) {
           const { filename, filePath } = downloadedFile;
           
-          // 중복 체크
-          const postNoValue = postNo || 'unknown';
+          // 이미 처리된 파일인지 확인 (텍스트 내용이 있는 경우만 스킵)
           if (this.isFileAlreadyProcessed(boardId, postNoValue, filename)) {
-            console.log(`이미 처리된 파일: ${filename}`);
-            continue;
+            const existingFile = this.metadata.files[`${boardId}_${postNoValue}_${filename}`];
+            console.log(`=== 메타데이터 확인: ${filename} ===`);
+            console.log(`기존 파일 정보:`, existingFile);
+            console.log(`기존 텍스트 길이: ${existingFile?.textContent ? existingFile.textContent.length : 0}`);
+            console.log(`=== 메타데이터 확인 끝 ===`);
+            
+            if (existingFile && existingFile.textContent && existingFile.textContent.trim() !== '') {
+              console.log(`이미 처리된 파일 (텍스트 있음): ${filename}`);
+              continue;
+            } else {
+              console.log(`텍스트 내용이 없어서 다시 처리: ${filename}`);
+            }
           }
           
-          // 파일 메타데이터 추가
-          this.addFileMetadata(boardId, postNoValue, filename, filePath);
-          
-          // 공고 게시판의 경우 텍스트 내용을 벡터 DB에 추가
-          if (boardId === 'HIRAA030023010000' && textContent && textFileInfo) {
-            const sourceInfo = {
-              boardId,
-              postNo: postNoValue,
-              title: title || '제목없음',
-              filename: textFileInfo.fileName,
-              filePath: textFileInfo.filePath,
-              type: 'text'
-            };
+          try {
+            console.log(`파일 처리 시작: ${filename}`);
             
-            const chunks = await this.splitText(textContent, sourceInfo);
-            newDocuments.push(...chunks);
+            // 파일에서 텍스트 추출
+            const extractedText = await this.extractTextFromFile(filePath);
+            
+            // 디버깅: 추출된 텍스트 확인
+            console.log(`=== 파일 텍스트 추출 디버깅: ${filename} ===`);
+            console.log(`추출된 텍스트 길이: ${extractedText ? extractedText.length : 0}`);
+            console.log(`텍스트 미리보기: ${extractedText ? extractedText.slice(0, 200) + '...' : '빈 텍스트'}`);
+            console.log(`=== 파일 텍스트 추출 디버깅 끝 ===`);
+            
+            if (extractedText && extractedText.trim() !== '') {
+              const sourceInfo = {
+                boardId,
+                postNo: postNoValue,
+                title: title || '제목없음',
+                filename,
+                filePath,
+                type: 'document'
+              };
+              
+              const chunks = await this.splitText(extractedText, sourceInfo);
+              
+              // 디버깅: 청킹 결과 확인
+              console.log(`=== 청킹 결과 디버깅: ${filename} ===`);
+              console.log(`생성된 청크 수: ${chunks.length}`);
+              if (chunks.length > 0) {
+                console.log(`첫 번째 청크 미리보기: ${chunks[0].pageContent ? chunks[0].pageContent.slice(0, 100) + '...' : '빈 청크'}`);
+              }
+              console.log(`=== 청킹 결과 디버깅 끝 ===`);
+              
+              if (chunks.length > 0) {
+                console.log(`파일 처리 완료: ${filename} (${chunks.length}개 청크)`);
+                newDocuments.push(...chunks);
+                
+                // 메타데이터에 처리 정보 추가
+                this.addFileMetadata(boardId, postNoValue, filename, filePath, extractedText);
+              } else {
+                console.log(`파일 처리 결과 없음: ${filename}`);
+              }
+            } else {
+              console.log(`파일에서 텍스트 추출 실패: ${filename}`);
+            }
+            
+          } catch (error) {
+            console.error(`파일 처리 실패 (${filename}):`, error);
           }
         }
       }
@@ -325,20 +497,35 @@ class EnhancedDataModule {
 
   // 검색 (소스 포함) - 하이브리드 검색 사용
   async searchWithSources(query, limit = 5) {
-    if (!this.embeddings) {
-      console.warn('OpenAI API 키가 없어 벡터 검색을 수행할 수 없습니다.');
-      return {
-        results: [],
-        sources: []
-      };
-    }
-    
-    if (!this.vectorStore) {
+    if (!this.chromaPath) {
       await this.initializeVectorStore();
     }
 
-    // 하이브리드 검색 사용
-    const results = await this.hybridSearch.hybridSearch(query, limit);
+    // ChromaDB 벡터 검색 사용
+    const vectorResults = await this.runChromaScript('search', {
+      db_path: this.chromaPath,
+      model_name: this.embeddingModel,
+      device: this.device,
+      query: query,
+      n_results: limit
+    });
+  
+  let results = [];
+  if (vectorResults.success) {
+    results = vectorResults.results.map(result => ({
+      content: result.pageContent,
+      score: result.score,
+      sourceInfo: result.metadata,
+      searchType: 'vector'
+    }));
+  } else {
+    console.log('벡터 검색 실패, 키워드 검색만 사용:', vectorResults.error);
+    // 키워드 검색으로 대체
+    results = this.searchByKeywords(query, limit).map(result => ({
+      ...result,
+      searchType: 'keyword'
+    }));
+  }
     
     const processedResults = results.map(result => ({
       content: result.content,
@@ -371,17 +558,28 @@ class EnhancedDataModule {
 
   // 단순 검색
   async search(query, limit = 5) {
-    if (!this.vectorStore) {
+    if (!this.chromaPath) {
       await this.initializeVectorStore();
     }
 
-    const results = await this.vectorStore.similaritySearchWithScore(query, limit);
+    const result = await this.runChromaScript('search', {
+      db_path: this.chromaPath,
+      model_name: this.embeddingModel,
+      device: this.device,
+      query: query,
+      n_results: limit
+    });
     
-    return results.map(([doc, score]) => ({
-      content: doc.pageContent,
-      score: score,
-      sourceInfo: doc.metadata
-    }));
+    if (result.success) {
+      return result.results.map(doc => ({
+        content: doc.pageContent,
+        score: doc.score,
+        sourceInfo: doc.metadata
+      }));
+    } else {
+      console.log('벡터 검색 실패:', result.error);
+      return [];
+    }
   }
 
   // 메타데이터 조회
@@ -399,10 +597,68 @@ class EnhancedDataModule {
     }
     return files;
   }
+
+  // 키워드 기반 검색
+  searchByKeywords(query, limit = 5) {
+    const results = [];
+    const queryLower = query.toLowerCase();
+    
+    // 메타데이터의 모든 파일에서 검색
+    for (const [key, fileInfo] of Object.entries(this.metadata.files)) {
+      if (fileInfo.textContent && fileInfo.textContent.toLowerCase().includes(queryLower)) {
+        // 텍스트에서 관련 부분 추출
+        const text = fileInfo.textContent;
+        const index = text.toLowerCase().indexOf(queryLower);
+        const start = Math.max(0, index - 100);
+        const end = Math.min(text.length, index + query.length + 100);
+        const excerpt = text.substring(start, end);
+        
+        results.push({
+          content: excerpt,
+          score: 0.8, // 키워드 매칭 점수
+          sourceInfo: {
+            boardId: fileInfo.boardId,
+            postNo: fileInfo.postNo,
+            title: fileInfo.filename,
+            filename: fileInfo.filename,
+            filePath: fileInfo.filePath,
+            type: 'text'
+          }
+        });
+        
+        if (results.length >= limit) break;
+      }
+    }
+    
+    return results.sort((a, b) => b.score - a.score);
+  }
+
+  // query 함수 추가 - hira_data_module.js와 호환성 유지
+  async query(q) {
+    const { results, sources } = await this.searchWithSources(q, 5);
+    
+    console.log(`\n🔍 검색 결과: "${q}"`);
+    console.log(`📊 총 ${results.length}개 결과, ${sources.length}개 소스`);
+    
+    results.forEach((r, i) => {
+      const source = r.sourceInfo;
+      console.log(`\n[${i + 1}] 점수: ${r.score.toFixed(2)}`);
+      console.log(`📄 소스: ${source.title} (게시글 #${source.postNo})`);
+      console.log(`📁 파일: ${source.filename || '본문'}`);
+      console.log(`💬 내용: ${r.content.slice(0, 200)}…`);
+    });
+    
+    console.log(`\n📚 참고 소스:`);
+    sources.forEach((source, i) => {
+      console.log(`  ${i + 1}. ${source.title} (게시글 #${source.postNo})`);
+    });
+
+    return results;
+  }
 }
 
-// 싱글톤 인스턴스
+// 클래스와 인스턴스 모두 export
 const enhancedDataModule = new EnhancedDataModule();
 
 export default enhancedDataModule;
-export { VECTOR_DIR, RAW_DIR, TEXT_DIR }; 
+export { EnhancedDataModule, VECTOR_DIR, RAW_DIR, TEXT_DIR }; 
