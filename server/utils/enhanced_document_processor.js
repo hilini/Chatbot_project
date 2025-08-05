@@ -370,36 +370,53 @@ except Exception as e:
   // Excel 처리 (Node.js XLSX 사용)
   async processExcel(filePath, options = {}) {
     try {
-      // Node.js XLSX 라이브러리 사용
-      const XLSX = await import('xlsx');
-      const workbook = XLSX.default.readFile(filePath);
+      // ExcelJS 라이브러리 사용
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.default.Workbook();
+      
+      console.log(`Excel 파일 로딩 중: ${path.basename(filePath)}`);
+      await workbook.xlsx.readFile(filePath);
       
       let allText = '';
-      const sheetNames = workbook.SheetNames;
+      const sheetNames = workbook.worksheets.map(sheet => sheet.name);
       
-      for (const sheetName of sheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.default.utils.sheet_to_json(worksheet, { header: 1 });
-        
+      console.log(`Excel 시트 목록: ${sheetNames.join(', ')}`);
+      
+      for (const worksheet of workbook.worksheets) {
+        const sheetName = worksheet.name;
         allText += `\n=== ${sheetName} ===\n`;
         
         // 각 행을 텍스트로 변환
-        for (const row of jsonData) {
-          if (row && row.length > 0) {
-            const rowText = row.map(cell => cell || '').join('\t');
+        worksheet.eachRow((row, rowNumber) => {
+          const rowValues = [];
+          row.eachCell((cell, colNumber) => {
+            const cellValue = cell.value;
+            if (cellValue !== null && cellValue !== undefined) {
+              rowValues.push(String(cellValue));
+            } else {
+              rowValues.push('');
+            }
+          });
+          
+          if (rowValues.some(value => value.trim() !== '')) {
+            const rowText = rowValues.join('\t');
             allText += rowText + '\n';
           }
-        }
+        });
+        
         allText += '\n';
       }
+      
+      console.log(`Excel 처리 완료: ${path.basename(filePath)}, 텍스트 길이: ${allText.length}`);
       
       return {
         content: allText,
         pages: sheetNames.length,
-        method: 'xlsx'
+        method: 'exceljs'
       };
 
     } catch (error) {
+      console.error(`Excel 처리 실패 (${path.basename(filePath)}):`, error);
       throw new Error(`Excel 처리 실패: ${error.message}`);
     }
   }

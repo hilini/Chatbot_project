@@ -1,0 +1,148 @@
+{
+  "timestamp": "2025-08-04T03:50:19.868Z",
+  "environment": {
+    "nodeVersion": "v24.4.0",
+    "platform": "linux",
+    "openaiApiKey": true,
+    "VECTOR_DIR_exists": false,
+    "RAW_DIR_exists": false,
+    "TEXT_DIR_exists": false
+  },
+  "parsing": {
+    "pdf": {
+      "success": false,
+      "error": "File not found"
+    },
+    "excel": {
+      "success": false,
+      "error": "File not found"
+    },
+    "text": {
+      "success": false,
+      "error": "File not found"
+    }
+  },
+  "chunking": {
+    "test_0": {
+      "inputLength": 6,
+      "chunkCount": 1,
+      "processingTime": 0,
+      "averageChunkSize": 6
+    },
+    "test_1": {
+      "inputLength": 31,
+      "chunkCount": 1,
+      "processingTime": 1,
+      "averageChunkSize": 31
+    },
+    "test_2": {
+      "inputLength": 500,
+      "chunkCount": 1,
+      "processingTime": 0,
+      "averageChunkSize": 500
+    }
+  },
+  "embedding": {
+    "available": false,
+    "error": "OpenAI API 키 없음"
+  },
+  "vectorStore": {
+    "error": "The \"path\" argument must be of type string. Received undefined"
+  },
+  "metadata": {
+    "error": "The \"path\" argument must be of type string. Received undefined"
+  },
+  "search": {
+    "펨브롤리주맙": {
+      "success": false,
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    "키트루다": {
+      "success": false,
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    "면역항암제": {
+      "success": false,
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    "급여기준": {
+      "success": false,
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    }
+  },
+  "performance": {
+    "small_text_parsing": {
+      "inputSize": 60,
+      "chunkCount": 1,
+      "processingTime": 0,
+      "throughput": null
+    },
+    "medium_text_parsing": {
+      "inputSize": 600,
+      "chunkCount": 1,
+      "processingTime": 1,
+      "throughput": 600000
+    },
+    "large_text_parsing": {
+      "inputSize": 5000,
+      "chunkCount": 7,
+      "processingTime": 2,
+      "throughput": 2500000
+    }
+  },
+  "issues": [
+    {
+      "type": "MISSING_DIRECTORY",
+      "directory": "VECTOR_DIR"
+    },
+    {
+      "type": "MISSING_DIRECTORY",
+      "directory": "RAW_DIR"
+    },
+    {
+      "type": "MISSING_DIRECTORY",
+      "directory": "TEXT_DIR"
+    },
+    {
+      "type": "EMBEDDING_UNAVAILABLE",
+      "reason": "OpenAI API 키 없음"
+    },
+    {
+      "type": "VECTOR_STORE_ERROR",
+      "error": "The \"path\" argument must be of type string. Received undefined"
+    },
+    {
+      "type": "METADATA_ERROR",
+      "error": "The \"path\" argument must be of type string. Received undefined"
+    },
+    {
+      "type": "SEARCH_ERROR",
+      "query": "펨브롤리주맙",
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    {
+      "type": "SEARCH_ERROR",
+      "query": "키트루다",
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    {
+      "type": "SEARCH_ERROR",
+      "query": "면역항암제",
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    },
+    {
+      "type": "SEARCH_ERROR",
+      "query": "급여기준",
+      "error": "Python 스크립트 실행 실패 (1): Traceback (most recent call last):\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/chroma_manager.py\", line 23, in <module>\n    from embedding_models import create_embedding_manager\n  File \"/home/hlchoi/chatbot/anticancer_chat/server/utils/embedding_models.py\", line 8, in <module>\n    from sentence_transformers import SentenceTransformer\nModuleNotFoundError: No module named 'sentence_transformers'\n"
+    }
+  ],
+  "analysis": {
+    "criticalIssues": 1,
+    "warnings": 9,
+    "recommendations": [
+      "PDF 파싱에 문제가 있습니다. 한글 PDF 처리를 위한 외부 솔루션을 고려하세요.",
+      "벡터 스토어가 없습니다. 데이터 동기화를 실행하세요.",
+      "검색 결과가 없습니다. 더 많은 데이터를 수집하거나 임베딩을 재생성하세요."
+    ]
+  }
+}

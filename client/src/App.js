@@ -14,6 +14,65 @@ function App() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mode, setMode] = useState('chat'); // 'chat' or 'pdf'
   const [selectedFile, setSelectedFile] = useState(null);
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+
+  // 새 대화 시작 함수
+  const handleNewChat = async () => {
+    try {
+      // 새 세션 생성
+      const sessionResponse = await axios.post('/api/chat/sessions');
+      const newSessionId = sessionResponse.data.sessionId;
+      
+      // 현재 세션을 히스토리에 저장 (메시지가 있는 경우)
+      if (messages.length > 0 && currentSessionId) {
+        const sessionPreview = messages[0]?.content?.substring(0, 50) || '대화 내용 없음';
+        const currentSession = {
+          sessionId: currentSessionId,
+          createdAt: new Date().toISOString(),
+          preview: sessionPreview
+        };
+        setSessionHistory(prev => [currentSession, ...prev]);
+      }
+      
+      // 새 세션으로 전환
+      setCurrentSessionId(newSessionId);
+      localStorage.setItem('currentSessionId', newSessionId);
+      setMessages([]); // 메시지 초기화
+      
+      console.log('새 대화가 시작되었습니다. 세션 ID:', newSessionId);
+    } catch (error) {
+      console.error('새 대화 시작 실패:', error);
+      alert('새 대화를 시작할 수 없습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 세션 전환 함수
+  const handleSwitchSession = async (sessionId) => {
+    try {
+      // 해당 세션의 메시지 히스토리 가져오기
+      const response = await axios.get(`/api/chat/sessions/${sessionId}/history`);
+      setMessages(response.data.history || []);
+      setCurrentSessionId(sessionId);
+      localStorage.setItem('currentSessionId', sessionId);
+      
+      console.log('세션이 전환되었습니다. 세션 ID:', sessionId);
+    } catch (error) {
+      console.error('세션 전환 실패:', error);
+      alert('세션을 전환할 수 없습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 세션 컨트롤 토글 함수
+  const [showSessionControls, setShowSessionControls] = useState(false);
+  const handleToggleSessionControls = () => {
+    setShowSessionControls(!showSessionControls);
+  };
+
+  // 세션 패널 닫기 함수
+  const handleCloseSessionPanel = () => {
+    setShowSessionControls(false);
+  };
 
   const handleSendMessage = async (message) => {
     if (!message.trim()) return;
@@ -30,6 +89,7 @@ function App() {
         const sessionResponse = await axios.post('/api/chat/sessions');
         sessionId = sessionResponse.data.sessionId;
         localStorage.setItem('currentSessionId', sessionId);
+        setCurrentSessionId(sessionId);
       }
 
       // 실제 챗봇 API 호출
@@ -69,7 +129,15 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <TitleHeader />
+        <TitleHeader 
+          onNewChat={handleNewChat}
+          onToggleSessionControls={handleToggleSessionControls}
+          showSessionControls={showSessionControls}
+          onCloseSessionPanel={handleCloseSessionPanel}
+          sessionHistory={sessionHistory}
+          onSwitchSession={handleSwitchSession}
+          currentSessionId={currentSessionId}
+        />
         <div className="mode-toggle">
           <button 
             className={mode === 'chat' ? 'active' : ''} 

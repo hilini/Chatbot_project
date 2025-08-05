@@ -34,6 +34,116 @@
   font-weight: 500;
 }
 
+/* Markdown Styles */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+  margin: 16px 0 8px 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.message-content h1 { font-size: 1.5em; }
+.message-content h2 { font-size: 1.3em; }
+.message-content h3 { font-size: 1.1em; }
+
+.message-content p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.message-content strong,
+.message-content b {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.message-content em,
+.message-content i {
+  font-style: italic;
+  color: #7f8c8d;
+}
+
+.message-content code {
+  background-color: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #e74c3c;
+}
+
+.message-content pre {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-left: 4px solid #667eea;
+}
+
+.message-content pre code {
+  background: none;
+  padding: 0;
+  color: #333;
+}
+
+.message-content blockquote {
+  border-left: 4px solid #667eea;
+  margin: 12px 0;
+  padding: 8px 16px;
+  background-color: #f8f9fa;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.message-content ul,
+.message-content ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.message-content li {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.message-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 0.9em;
+}
+
+.message-content th,
+.message-content td {
+  border: 1px solid #dee2e6;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-content th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.message-content tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.message-content a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.message-content a:hover {
+  text-decoration: underline;
+}
+
 /* Sources Section */
 .sources-section {
   margin-top: 12px;
@@ -107,6 +217,39 @@
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
+}
+
+.source-page {
+  background: #ffc107;
+  color: #212529;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.source-score {
+  background: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.source-content {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-left: 3px solid #007bff;
+  border-radius: 4px;
+}
+
+.source-content-text {
+  font-size: 11px;
+  color: #495057;
+  line-height: 1.4;
+  font-style: italic;
 }
 
 .source-details {

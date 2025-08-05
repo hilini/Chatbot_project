@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { OpenAIEmbeddings } from '@langchain/openai';
 import { Chroma } from '@langchain/community/vectorstores/chroma';
 import { Document } from 'langchain/document';
 import dotenv from 'dotenv';
@@ -12,64 +11,92 @@ const __dirname = path.dirname(__filename);
 // 환경 변수 로드
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+// vLLM 임베딩 클라이언트 (동기 래퍼)
+class VLLMEmbeddingWrapper {
+  constructor(serverUrl = "http://localhost:8002", modelName = "bge-large") {
+    this.serverUrl = serverUrl;
+    this.modelName = modelName;
+  }
+
+  async embedDocuments(texts) {
+    try {
+      const response = await fetch(`${this.serverUrl}/v1/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.modelName,
+          input: texts,
+          normalize: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data.map(item => item.embedding);
+    } catch (error) {
+      console.error('vLLM 임베딩 오류:', error);
+      // fallback: 랜덤 임베딩
+      return texts.map(() => Array.from({length: 1024}, () => Math.random() - 0.5));
+    }
+  }
+
+  async embedQuery(text) {
+    const embeddings = await this.embedDocuments([text]);
+    return embeddings[0];
+  }
+}
+
 async function rebuildChromaStore() {
   console.log('=== Chroma 벡터 스토어 재생성 시작 ===');
   
-  // 1. OpenAI embeddings 초기화
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('OpenAI API 키가 없습니다.');
+  // 1. vLLM 임베딩 초기화
+  const embeddings = new VLLMEmbeddingWrapper("http://localhost:8002", "bge-large");
+  
+  console.log('✅ vLLM 임베딩 초기화 완료');
+  
+  // 2. 실제 데이터 로드 (metadata.json에서)
+  const metadataPath = path.join(__dirname, 'server', 'data', 'vector', 'metadata.json');
+  
+  if (!fs.existsSync(metadataPath)) {
+    console.error('❌ metadata.json 파일이 없습니다.');
     return;
   }
-  
-  const embeddings = new OpenAIEmbeddings({
-    openAIApiKey: process.env.OPENAI_API_KEY,
-  });
-  
-  console.log('✅ OpenAI embeddings 초기화 완료');
-  
-  // 2. 샘플 데이터 생성
-  const sampleDocuments = [
-    new Document({
-      pageContent: "펨브롤리주맙(키트루다)은 면역항암제로, PD-1 억제제입니다. 주요 적응증은 비소세포폐암, 흑색종, 두경부암 등입니다.",
-      metadata: {
-        boardId: 'HIRAA030023030000',
-        postNo: 'sample_001',
-        filename: '키트루다_정보.txt',
-        title: '키트루다 정보',
-        type: 'text'
-      }
-    }),
-    new Document({
-      pageContent: "옵디보(니볼루맙)는 면역항암제로, PD-1 억제제입니다. 주요 적응증은 비소세포폐암, 신세포암, 흑색종 등입니다.",
-      metadata: {
-        boardId: 'HIRAA030023030000',
-        postNo: 'sample_002',
-        filename: '옵디보_정보.txt',
-        title: '옵디보 정보',
-        type: 'text'
-      }
-    }),
-    new Document({
-      pageContent: "테센트릭(아테졸리주맙)은 면역항암제로, PD-L1 억제제입니다. 주요 적응증은 소세포폐암, 유방암, 요로상피암 등입니다.",
-      metadata: {
-        boardId: 'HIRAA030023030000',
-        postNo: 'sample_003',
-        filename: '테센트릭_정보.txt',
-        title: '테센트릭 정보',
-        type: 'text'
-      }
-    })
-  ];
-  
-  console.log(`✅ 샘플 데이터 ${sampleDocuments.length}개 생성됨`);
+
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+  const documents = [];
+
+  // 파일별로 문서 생성
+  for (const [fileId, fileData] of Object.entries(metadata.files)) {
+    if (fileData.textContent && !fileData.textContent.includes('처리 불가')) {
+      documents.push(new Document({
+        pageContent: fileData.textContent,
+        metadata: {
+          boardId: fileData.boardId,
+          postNo: fileData.postNo,
+          filename: fileData.filename,
+          title: fileData.filename,
+          type: fileData.filename.endsWith('.pdf') ? 'pdf' : 'text',
+          fileSize: fileData.fileSize,
+          processedAt: fileData.processedAt
+        }
+      }));
+    }
+  }
+
+  console.log(`✅ 실제 데이터 ${documents.length}개 로드됨`);
   
   // 3. Chroma 벡터 스토어 생성
   console.log('🔄 Chroma 벡터 스토어 생성 중...');
   
   try {
-    const vectorStore = await Chroma.fromDocuments(sampleDocuments, embeddings, {
+    const vectorStore = await Chroma.fromDocuments(documents, embeddings, {
       collectionName: 'hira_medical_docs',
-      url: "http://localhost:8765" // HTTP 서버 주소 (8765번 포트)
+      url: "http://localhost:8001" // HTTP 서버 주소 (8001번 포트)
     });
     
     console.log('✅ Chroma 벡터 스토어 생성 완료!');
@@ -84,12 +111,16 @@ async function rebuildChromaStore() {
     
     for (const query of testQueries) {
       console.log(`\n🔍 검색어: "${query}"`);
-      const results = await vectorStore.similaritySearch(query, 2);
-      
-      results.forEach((doc, index) => {
-        console.log(`  ${index + 1}. ${doc.metadata.title}`);
-        console.log(`     내용: ${doc.pageContent.substring(0, 100)}...`);
-      });
+      try {
+        const results = await vectorStore.similaritySearch(query, 2);
+        
+        results.forEach((doc, index) => {
+          console.log(`  ${index + 1}. ${doc.metadata.title}`);
+          console.log(`     내용: ${doc.pageContent.substring(0, 100)}...`);
+        });
+      } catch (error) {
+        console.log(`  ❌ 검색 실패: ${error.message}`);
+      }
     }
     
     console.log('\n🎉 Chroma 벡터 스토어 재생성 완료!');

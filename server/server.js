@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import XLSX from 'xlsx';
 import enhancedDataModule, { VECTOR_DIR as VECTOR_STORE_DIR } from './utils/enhanced_data_module.js';
+import MedicalCriteriaAnalyzer from './utils/medical_criteria_analyzer.js';
 import config from '../config.js';
 
 // ESM-compatible __dirname
@@ -31,6 +32,9 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 // Initialize Express app
 const app = express();
 const PORT = config.server.port; // Using port from config
+
+// Initialize Medical Criteria Analyzer
+const medicalAnalyzer = new MedicalCriteriaAnalyzer();
 
 // Middleware
 // Set up CORS with specific configuration from config file
@@ -585,6 +589,10 @@ app.post('/api/chat', async (req, res) => {
     let reimbursement = '정보 없음';  // 기본값 설정
     let evidencePages = [];  // 기본값 설정
     
+    // 의료급여 기준 분석
+    let medicalAnalysis = null;
+    let structuredResponse = null;
+    
     
     if (useRag) {
       try {
@@ -616,6 +624,16 @@ app.post('/api/chat', async (req, res) => {
           console.log(`${sourcePages.length}개의 페이지 참조가 발견되었습니다: ${sourcePages.join(', ')}`);
         } else {
           console.log("페이지 참조가 없습니다");
+        }
+        
+        // 의료급여 기준 분석 수행
+        try {
+          medicalAnalysis = medicalAnalyzer.analyzeQuery(message);
+          const decision = medicalAnalyzer.generateDecision(medicalAnalysis);
+          structuredResponse = medicalAnalyzer.generateStructuredResponse(message, decision);
+          console.log('의료급여 기준 분석 완료:', structuredResponse.decision);
+        } catch (error) {
+          console.warn('의료급여 기준 분석 오류:', error);
         }
       } catch (error) {
         console.warn('RAG 문서 검색 오류:', error);
@@ -740,13 +758,30 @@ app.post('/api/chat', async (req, res) => {
       response = aiResponse.content;
       console.log(`[채팅] 응답 성공, 길이: ${response.length} 자`);
       
-      // reimbursement 정보가 있는 경우에만 추가
-      if (typeof reimbursement !== 'undefined' && evidencePages && evidencePages.length > 0) {
-        response += `
+          // 의료급여 기준 분석 결과가 있는 경우 구조화된 응답 추가
+    if (structuredResponse) {
+      response += `
+
+📋 **의료급여 기준 판단 결과**
+
+${structuredResponse.decision === '급여가능' ? '✅ **급여 가능**' : 
+  structuredResponse.decision === '급여불가' ? '❌ **급여 불가능**' : 
+  structuredResponse.decision === '조건부급여' ? '⚠️ **조건부 급여**' : '❓ **판단불가**'}
+
+
+
+💡 **권장사항**:
+${structuredResponse.recommendation}
+
+🔍 **관련 프로토콜**:
+${structuredResponse.relevantProtocols.slice(0, 10).map(p => `- ${p.code}: ${p.cancerType} - ${p.treatment}`).join('\n')}
+${structuredResponse.relevantProtocols.length > 10 ? `\n... 및 ${structuredResponse.relevantProtocols.length - 10}개 더` : ''}`;
+    } else if (typeof reimbursement !== 'undefined' && evidencePages && evidencePages.length > 0) {
+      response += `
         
 판정 결과: **${reimbursement}**  
 (근거 페이지: ${evidencePages.join(', ')})`;
-      }
+    }
     } catch (error) {
       console.error(`[채팅] 응답 오류 (${modelName}): ${error.message}`);
       
@@ -805,6 +840,17 @@ app.post('/api/chat', async (req, res) => {
     return res.json({
       role: 'assistant',
       content: responseWithPageInfo,
+      sources: results.map(doc => ({
+        title: doc.metadata.title || doc.metadata.filename || '제목 없음',
+        boardId: doc.metadata.boardId,
+        postNo: doc.metadata.postNo,
+        filename: doc.metadata.filename,
+        filePath: doc.metadata.filePath,
+        type: doc.metadata.type || 'text',
+        page: doc.metadata.documentPage || doc.metadata.page || null,
+        content: doc.pageContent.substring(0, 200) + (doc.pageContent.length > 200 ? '...' : ''),
+        score: doc.score || 0
+      })),
       metadata: {
         sourcePages,
         modelName,
@@ -1496,6 +1542,40 @@ function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
+
+// 의료급여 기준 분석 전용 API 엔드포인트
+app.post('/api/analyze-medical-criteria', async (req, res) => {
+  try {
+    const { query } = req.body;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ 
+        error: '분석할 의료 질문을 입력해주세요.' 
+      });
+    }
+
+    console.log('의료급여 기준 분석 요청:', query);
+    
+    // 의료급여 기준 분석 수행
+    const analysis = medicalAnalyzer.analyzeQuery(query);
+    const decision = medicalAnalyzer.generateDecision(analysis);
+    const structuredResponse = medicalAnalyzer.generateStructuredResponse(query, decision);
+    
+    res.json({
+      success: true,
+      query: query,
+      analysis: structuredResponse,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('의료급여 기준 분석 오류:', error);
+    res.status(500).json({ 
+      error: '의료급여 기준 분석 중 오류가 발생했습니다.',
+      details: error.message 
+    });
+  }
+});
 
 
 // 서버 시작 시 벡터DB 초기화 및 데이터 동기화

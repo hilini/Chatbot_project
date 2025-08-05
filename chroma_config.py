@@ -24,7 +24,7 @@ def start_chroma_server():
         settings = chromadb.config.Settings(
             chroma_api_impl="rest",
             chroma_server_host="localhost",
-            chroma_server_http_port=8765,  # 8765번 포트로 변경
+            chroma_server_http_port=8000,  # 8000번 포트로 통일
             persist_directory=persist_dir,
             allow_reset=True
         )
@@ -34,7 +34,7 @@ def start_chroma_server():
         
         print("🚀 Chroma HTTP 서버가 시작되었습니다!")
         print(f"💾 데이터 저장 경로: {persist_dir}")
-        print("🌐 서버 주소: http://localhost:8765")
+        print("🌐 서버 주소: http://localhost:8000")
         print("📚 컬렉션: hira_medical_docs")
         
         # 컬렉션 생성 또는 확인
@@ -98,11 +98,8 @@ def start_chroma_http_server():
             raise Exception(f"서버 시작 실패: {e}")
             
     except FileNotFoundError:
-        print("❌ 'chroma' 명령어를 찾을 수 없습니다.")
-        print("💡 pip install chromadb로 설치했는지 확인하세요.")
-        return None, None
-    except Exception as e:
-        print(f"❌ HTTP 서버 시작 실패: {e}")
+        print("❌ chroma 명령어를 찾을 수 없습니다.")
+        print("💡 pip install chromadb로 설치해주세요.")
         return None, None
 
 def run_local_client():

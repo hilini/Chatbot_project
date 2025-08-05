@@ -3,14 +3,20 @@ import os
 import sys
 import json
 
+# ChromaDB query 메서드 패치 - 타입 체크 우회
+import chromadb.api.types as types
+import chromadb.api.models.Collection as coll_mod
+
+_original_query = coll_mod.Collection.query
+
+def _patched_query(self, *args, **kwargs):
+    # 심플하게 타입 체크를 건너뛰고 원본 로직만 호출
+    return _original_query(self, *args, **kwargs)
+
+coll_mod.Collection.query = _patched_query
+
 # ── 1) 부트스트랩 패치: 무조건 가장 먼저
 os.environ["CHROMA_NO_DEFAULT_EMBEDDINGS"] = "True"
-
-# 모듈 레벨에서 onnxruntime import 자체를 막기
-class MockOnnxRuntime:
-    def __getattr__(self, name):
-        raise ImportError("onnxruntime is disabled")
-sys.modules["onnxruntime"] = MockOnnxRuntime()
 
 # DefaultEmbeddingFunction 바로 덮어쓰기
 import chromadb.utils.embedding_functions as ef
@@ -19,22 +25,23 @@ ef.DefaultEmbeddingFunction = lambda *args, **kwargs: None
 # ── 2) 이제야 Chroma/Client import
 from chromadb import Client
 from chromadb.config import Settings
-# GPU 기반 임베딩 매니저 사용
-from embedding_models import create_embedding_manager
+# vLLM 기반 임베딩 매니저 사용
+from vllm_embedding_client import VLLMEmbeddingManager
 from typing import List, Dict, Any
 
 class ChromaManager:
-    def __init__(self, db_path: str, model_name: str = "minilm", device: str = "auto"):
+    def __init__(self, db_path: str, model_name: str = "bge-large", device: str = "auto"):
         """
         Args:
             db_path: ChromaDB 저장 경로
-            model_name: 사용할 임베딩 모델 ("minilm", "pubmed", "mpnet" 등)
-            device: "cuda", "cpu", "auto"
+            model_name: 사용할 임베딩 모델 ("bge-large", "bge-base", "bge-small" 등)
+            device: "cuda", "cpu", "auto" (vLLM에서 자동 처리)
         """
-        # GPU 기반 임베딩 매니저 초기화
-        print(f"GPU 기반 임베딩 매니저 초기화 중... (모델: {model_name})")
-        self.embedding_manager = create_embedding_manager(model_name, device)
-        print("GPU 임베딩 매니저 초기화 완료")
+        # vLLM 기반 임베딩 매니저 초기화
+        import sys
+        print(f"vLLM 기반 임베딩 매니저 초기화 중... (모델: {model_name})", file=sys.stderr)
+        self.embedding_manager = VLLMEmbeddingManager(model_name=model_name)
+        print("vLLM 임베딩 매니저 초기화 완료", file=sys.stderr)
         
         # ChromaDB 클라이언트 생성
         self.client = Client(Settings(
@@ -43,21 +50,31 @@ class ChromaManager:
             anonymized_telemetry=False
         ))
         
-        # 커스텀 embedding function 생성
-        def custom_embedding_function(texts):
-            embeddings = self.embedding_manager.encode(texts, normalize=True)
-            return embeddings.tolist()
+        # 커스텀 embedding function 생성 (ChromaDB 0.4.16+ 호환)
+        class CustomEmbeddingFunction:
+            def __init__(self, embedding_manager):
+                self.embedding_manager = embedding_manager
+            
+            def __call__(self, input):
+                if isinstance(input, list):
+                    texts = input
+                else:
+                    texts = [input]
+                embeddings = self.embedding_manager.encode(texts, normalize=True)
+                return embeddings.tolist()
+        
+        custom_embedding_function = CustomEmbeddingFunction(self.embedding_manager)
         
         # 컬렉션 생성 또는 가져오기
         try:
             self.collection = self.client.get_collection("hira_medical_docs")
-            print("기존 컬렉션 로드됨")
+            print("기존 컬렉션 로드됨", file=sys.stderr)
         except:
             self.collection = self.client.create_collection(
                 name="hira_medical_docs",
                 embedding_function=custom_embedding_function
             )
-            print("새 컬렉션 생성됨")
+            print("새 컬렉션 생성됨", file=sys.stderr)
     
     def add_documents(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -84,11 +101,11 @@ class ChromaManager:
                 ids=ids
             )
             
-            print(f"✅ {len(documents)}개 문서 추가 완료")
+            print(f"✅ {len(documents)}개 문서 추가 완료", file=sys.stderr)
             return {"success": True, "count": len(documents)}
             
         except Exception as e:
-            print(f"❌ 문서 추가 실패: {e}")
+            print(f"❌ 문서 추가 실패: {e}", file=sys.stderr)
             return {"success": False, "error": str(e)}
     
     def search(self, query: str, n_results: int = 5, filter_dict: Dict = None) -> Dict[str, Any]:
@@ -131,11 +148,11 @@ class ChromaManager:
                         "distance": distance
                     })
             
-            print(f"🔍 검색 완료: {len(hits)}개 결과")
+            print(f"🔍 검색 완료: {len(hits)}개 결과", file=sys.stderr)
             return {"success": True, "results": hits}
             
         except Exception as e:
-            print(f"❌ 검색 실패: {e}")
+            print(f"❌ 검색 실패: {e}", file=sys.stderr)
             return {"success": False, "error": str(e)}
     
     def get_collection_info(self) -> Dict[str, Any]:
@@ -155,10 +172,10 @@ class ChromaManager:
         """컬렉션 삭제"""
         try:
             self.client.delete_collection("hira_medical_docs")
-            print("✅ 컬렉션 삭제 완료")
+            print("✅ 컬렉션 삭제 완료", file=sys.stderr)
             return {"success": True}
         except Exception as e:
-            print(f"❌ 컬렉션 삭제 실패: {e}")
+            print(f"❌ 컬렉션 삭제 실패: {e}", file=sys.stderr)
             return {"success": False, "error": str(e)}
 
 def main():
@@ -167,14 +184,22 @@ def main():
         return
 
     cmd = sys.argv[1]
-    data = json.loads(sys.argv[2])
+    try:
+        data = json.loads(sys.argv[2])
+    except json.JSONDecodeError as e:
+        print(json.dumps({"success": False, "error": f"JSON 파싱 실패: {e}"}))
+        return
 
     db_path = data.get("db_path", "./chroma_db")
-    model_name = data.get("model_name", "minilm")
+    model_name = data.get("model_name", "bge-large")
     device = data.get("device", "auto")
     
     # ChromaManager 초기화
-    mgr = ChromaManager(db_path, model_name, device)
+    try:
+        mgr = ChromaManager(db_path, model_name, device)
+    except Exception as e:
+        print(json.dumps({"success": False, "error": f"ChromaManager 초기화 실패: {e}"}))
+        return
     
     if cmd == "add_documents":
         out = mgr.add_documents(data["documents"])
